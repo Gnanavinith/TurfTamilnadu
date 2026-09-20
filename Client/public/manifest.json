@@ -1,0 +1,17 @@
+{
+  "name": "Turf",
+  "short_name": "Turf",
+  "description": "Turf cricket scoring and live matches",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
