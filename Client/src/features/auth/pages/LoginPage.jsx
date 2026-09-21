@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { signIn, signUp } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import { getErrorMessage } from '../../../lib/axios'
@@ -50,43 +50,54 @@ export default function LoginPage() {
   const isSignin = mode === 'signin'
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg dark:bg-slate-900">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-2xl text-white">
-            🏏
+    <div className="gully">
+      <div
+        className="g-app"
+        style={{ display: 'grid', placeItems: 'center', padding: '28px 18px' }}
+      >
+        <div style={{ width: '100%' }}>
+          <div className="g-hello" style={{ textAlign: 'center' }}>
+            <span className="g-ball-icon" style={{ display: 'block', margin: '0 auto 12px' }} />
+            <h1>Turf</h1>
+            <small>
+              {isSignin ? 'Sign in to score and follow matches' : 'Create your account'}
+            </small>
           </div>
-          <h1 className="text-2xl font-bold">Turf</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {isSignin ? 'Sign in with your email and password' : 'Create your account'}
+
+          <div className="g-panel" style={{ marginTop: 0 }}>
+            {isSignin ? (
+              <LoginForm onSubmit={handleSignIn} busy={busy} />
+            ) : (
+              <SignUpForm onSubmit={handleSignUp} busy={busy} />
+            )}
+
+            <p className="g-note" style={{ textAlign: 'center', marginTop: 16 }}>
+              {isSignin ? 'New to Turf? ' : 'Already have an account? '}
+              <button
+                type="button"
+                className="g-link"
+                onClick={() => {
+                  setMode(isSignin ? 'signup' : 'signin')
+                  setError('')
+                }}
+              >
+                {isSignin ? 'Create an account' : 'Sign in'}
+              </button>
+            </p>
+          </div>
+
+          {error && (
+            <div className="g-alert g-alert-error" style={{ textAlign: 'center' }}>
+              {error}
+            </div>
+          )}
+
+          <p style={{ textAlign: 'center', marginTop: 14 }}>
+            <Link to="/home" className="g-note">
+              Browse live matches without an account
+            </Link>
           </p>
         </div>
-
-        {isSignin ? (
-          <LoginForm onSubmit={handleSignIn} busy={busy} />
-        ) : (
-          <SignUpForm onSubmit={handleSignUp} busy={busy} />
-        )}
-
-        <p className="mt-5 text-center text-sm text-slate-500 dark:text-slate-400">
-          {isSignin ? 'New to Turf?' : 'Already have an account?'}{' '}
-          <button
-            type="button"
-            onClick={() => {
-              setMode(isSignin ? 'signup' : 'signin')
-              setError('')
-            }}
-            className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
-          >
-            {isSignin ? 'Create an account' : 'Sign in'}
-          </button>
-        </p>
-
-        {error && (
-          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-center text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
-            {error}
-          </p>
-        )}
       </div>
     </div>
   )

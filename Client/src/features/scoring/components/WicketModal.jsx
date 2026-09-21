@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import Modal from '../../../components/Modal'
-import Button from '../../../components/Button'
 import { WICKET_TYPES } from '../../../utils/constants'
 
 const WICKET_LABELS = {
@@ -13,11 +12,19 @@ const WICKET_LABELS = {
   retired: 'Retired',
 }
 
-export default function WicketModal({ open, onClose, onConfirm, busy }) {
+export default function WicketModal({
+  open,
+  onClose,
+  onConfirm,
+  busy,
+  players = [],
+  defaultBatterId = '',
+}) {
   const [type, setType] = useState('bowled')
+  const [outBatterId, setOutBatterId] = useState(defaultBatterId)
 
   const handleConfirm = () => {
-    onConfirm(type)
+    onConfirm(type, outBatterId)
   }
 
   return (
@@ -27,36 +34,54 @@ export default function WicketModal({ open, onClose, onConfirm, busy }) {
       title="Wicket"
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <button type="button" className="g-btn g-btn-outline g-btn-sm" onClick={onClose}>
             Cancel
-          </Button>
-          <Button onClick={handleConfirm} variant="danger" loading={busy}>
-            Out
-          </Button>
+          </button>
+          <button
+            type="button"
+            className="g-btn g-btn-danger g-btn-sm"
+            onClick={handleConfirm}
+            disabled={!outBatterId || busy}
+          >
+            {busy ? 'Saving…' : 'Out'}
+          </button>
         </>
       }
     >
-      <div className="grid grid-cols-3 gap-2">
+      <div className="g-choices">
         {WICKET_TYPES.map((wicket) => (
           <button
             key={wicket}
             type="button"
             onClick={() => setType(wicket)}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${
-              type === wicket
-                ? 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                : 'border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800'
-            }`}
+            className={`g-choice${type === wicket ? ' is-on' : ''}`}
           >
             {WICKET_LABELS[wicket] ?? wicket.replace('_', ' ')}
           </button>
         ))}
       </div>
-      {type === 'run_out' && (
-        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-          Add the out-batter and the runs completed before confirming.
-        </p>
-      )}
+
+      <label className="g-field" style={{ marginTop: 16 }}>
+        <span className="g-label">Who is out?</span>
+        <select
+          value={outBatterId}
+          onChange={(event) => setOutBatterId(event.target.value)}
+          className="g-select"
+        >
+          <option value="">Select the out player</option>
+          {players.map((player) => (
+            <option key={player.id ?? player.userId} value={player.id ?? player.userId}>
+              {player.name ?? player.email}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="g-alert g-alert-warn">
+        {type === 'run_out'
+          ? 'Pick the out batter (striker or non-striker) and add the runs completed in the Run Pad before confirming.'
+          : 'Defaults to the striker. Switch if a different player was out.'}
+      </div>
     </Modal>
   )
 }

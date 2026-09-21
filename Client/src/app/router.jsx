@@ -1,10 +1,11 @@
 import { Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import Layout from '../components/Layout'
+import GullyLayout from '../features/gully/GullyAppLayout'
 import Loader from '../components/Loader'
 import ProtectedRoute from '../routes/ProtectedRoute'
 import RoleRoute from '../routes/RoleRoute'
 import {
+  OnboardingPage,
   LoginPage,
   InvitePage,
   MyTeams,
@@ -15,6 +16,7 @@ import {
   LiveMatchPage,
   LeaderboardPage,
   UsersAdminPage,
+  PublicHomePage,
 } from '../routes/lazyPages'
 
 const withSuspense = (element) => (
@@ -22,6 +24,14 @@ const withSuspense = (element) => (
 )
 
 export const router = createBrowserRouter([
+  {
+    path: '/home',
+    element: withSuspense(<PublicHomePage />),
+  },
+  {
+    path: '/onboarding',
+    element: withSuspense(<OnboardingPage />),
+  },
   {
     path: '/login',
     element: withSuspense(<LoginPage />),
@@ -34,7 +44,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <Layout />,
+        element: <GullyLayout />,
         children: [
           {
             index: true,
@@ -84,7 +94,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <Navigate to="/" replace />,
+    element: <Navigate to="/home" replace />,
   },
 ])
 

@@ -4,12 +4,14 @@ import { createTeam } from '../api'
 import { getErrorMessage } from '../../../lib/axios'
 import Modal from '../../../components/Modal'
 import Button from '../../../components/Button'
+import { SPECIALTY_OPTIONS } from '../constants'
 
 let memberSeq = 0
 
 export function CreateTeamModal({ open, onClose }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
+  const [shortName, setShortName] = useState('')
   const [city, setCity] = useState('')
   const [members, setMembers] = useState([])
 
@@ -17,17 +19,20 @@ export function CreateTeamModal({ open, onClose }) {
     mutationFn: () =>
       createTeam({
         name,
+        shortName: shortName.trim() || undefined,
         city,
         members: members
           .filter((member) => /\S+@\S+\.\S+/.test(member.email.trim()))
           .map((member) => ({
             email: member.email.trim().toLowerCase(),
             ...(member.password.length >= 8 ? { password: member.password } : {}),
+            ...(member.specialty ? { specialty: member.specialty } : {}),
           })),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] })
       setName('')
+      setShortName('')
       setCity('')
       setMembers([])
       onClose()
@@ -45,7 +50,7 @@ export function CreateTeamModal({ open, onClose }) {
   }
 
   const addMember = () => {
-    setMembers((prev) => [...prev, { id: memberSeq++, email: '', password: '' }])
+    setMembers((prev) => [...prev, { id: memberSeq++, email: '', password: '', specialty: '' }])
   }
 
   const updateMember = (id, field, value) => {
@@ -88,8 +93,24 @@ export function CreateTeamModal({ open, onClose }) {
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Strike Force"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             required
             minLength={2}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+            Short name <span className="font-normal text-slate-400">(optional, e.g. RCB)</span>
+          </span>
+          <input
+            value={shortName}
+            onChange={(event) => setShortName(event.target.value)}
+            placeholder="e.g. RCB"
+            autoCapitalize="characters"
+            maxLength={12}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
           />
         </label>
@@ -101,6 +122,7 @@ export function CreateTeamModal({ open, onClose }) {
             value={city}
             onChange={(event) => setCity(event.target.value)}
             placeholder="e.g. Bengaluru"
+            autoCapitalize="words"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
           />
         </label>
@@ -140,6 +162,17 @@ export function CreateTeamModal({ open, onClose }) {
                   placeholder="Set password (min 8 characters)"
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
                 />
+                <select
+                  value={member.specialty}
+                  onChange={(event) => updateMember(member.id, 'specialty', event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                >
+                  {SPECIALTY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.value ? `Role: ${option.label}` : 'Role: not set'}
+                    </option>
+                  ))}
+                </select>
               </div>
             ))}
             <Button type="button" variant="outline" onClick={addMember} className="w-full">

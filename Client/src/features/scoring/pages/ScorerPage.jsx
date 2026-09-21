@@ -2,14 +2,24 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useScorer } from '../hooks/useScorer'
 import { useLiveMatch } from '../../live/hooks/useLiveMatch'
+import { useGullyFeedback } from '../../gully/feedback'
 import { getErrorMessage } from '../../../lib/axios'
-import { formatOvers, formatScore } from '../../../utils/formatOvers'
-import Loader from '../../../components/Loader'
-import Button from '../../../components/Button'
-import RunPad from '../components/RunPad'
-import ExtrasPanel from '../components/ExtrasPanel'
+import { formatOvers, formatRunRate, formatScore } from '../../../utils/formatOvers'
 import WicketModal from '../components/WicketModal'
-import UndoButton from '../components/UndoButton'
+
+const PAD = [
+  { key: '0', label: '0', run: 0 },
+  { key: '1', label: '1', run: 1 },
+  { key: '2', label: '2', run: 2 },
+  { key: '3', label: '3', run: 3 },
+  { key: '4', label: '4', run: 4, cls: 'g-b4' },
+  { key: '6', label: '6', run: 6, cls: 'g-b6' },
+  { key: 'wd', label: 'Wd', cls: 'g-bx', extra: { kind: 'wide', runs: 1 } },
+  { key: 'nb', label: 'Nb', cls: 'g-bx', extra: { kind: 'no_ball', runs: 1 } },
+  { key: 'bye', label: 'Bye', cls: 'g-bx', extra: { kind: 'bye', runs: 1 } },
+  { key: 'lb', label: 'LB', cls: 'g-bx', extra: { kind: 'leg_bye', runs: 1 } },
+  { key: 'w', label: 'OUT', cls: 'g-bw', span: true },
+]
 
 export default function ScorerPage() {
   const { matchId } = useParams()
@@ -17,6 +27,7 @@ export default function ScorerPage() {
   const [showWicket, setShowWicket] = useState(false)
   const [strikerId, setStrikerId] = useState('')
   const [bowlerId, setBowlerId] = useState('')
+  const { burst } = useGullyFeedback()
 
   const { record, undo, error: scoreError } = useScorer({
     matchId,
@@ -62,21 +73,28 @@ export default function ScorerPage() {
       battingIds.includes(prev) ? prev : (activeBatter?.userId ?? battingIds[0] ?? ''),
     )
     setBowlerId((prev) => {
-      // Enforce the game rule: a bowler can't bowl two consecutive overs.
       if (overJustCompleted) return ''
       return bowlingIds.includes(prev) ? prev : (currentBowler?.userId ?? bowlingIds[0] ?? '')
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match])
 
-  if (isLoading) return <Loader label="Loading match…" />
+  if (isLoading) {
+    return (
+      <div className="g-screen">
+        <div className="g-skel" />
+        <div className="g-skel" />
+        <div className="g-skel" />
+      </div>
+    )
+  }
 
   if (error) {
     return (
-      <div className="rounded-xl bg-red-50 p-6 text-center dark:bg-red-900/30">
-        <p className="text-sm text-red-600 dark:text-red-400">
+      <div className="g-screen">
+        <div className="g-alert g-alert-error">
           {getErrorMessage(error, 'Failed to load match')}
-        </p>
+        </div>
       </div>
     )
   }
@@ -101,6 +119,8 @@ export default function ScorerPage() {
       extraRuns: 0,
       wicketType: null,
     })
+    if (runs === 4) burst('FOUR!', '#2f6bff')
+    else if (runs === 6) burst('SIX!', '#ff6a1a')
   }
 
   const handleExtra = ({ kind, runs }) => {
@@ -115,68 +135,89 @@ export default function ScorerPage() {
     })
   }
 
-  const handleWicket = (wicketType) => {
+  const handleWicket = (wicketType, outBatterId) => {
     setShowWicket(false)
     if (!canSend) return
     record.mutate({
-      batterId: strikerId,
+      batterId: outBatterId || strikerId,
       bowlerId,
       batterRuns: 0,
       extraType: null,
       extraRuns: 0,
       wicketType,
     })
-    setStrikerId('')
+    if (!outBatterId || outBatterId === strikerId) setStrikerId('')
+    burst('WICKET!', '#e11d48')
   }
 
   if (match.status !== 'live') {
     return (
-      <div className="rounded-xl bg-slate-100 p-6 text-center dark:bg-slate-800">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          This match is not live yet — start it before scoring.
-        </p>
+      <div className="g-screen">
+        <div className="g-hello">
+          <small>Scorer mode</small>
+          <h1>
+            Match not <em>live</em>
+          </h1>
+        </div>
+        <div className="g-alert g-alert-info">
+          This match is not live yet. Start it before scoring.
+        </div>
       </div>
     )
   }
 
   if (battingIds.length === 0 || bowlingIds.length === 0) {
     return (
-      <div className="rounded-xl bg-slate-100 p-6 text-center dark:bg-slate-800">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+      <div className="g-screen">
+        <div className="g-hello">
+          <small>Scorer mode</small>
+          <h1>
+            Playing <em>XI</em> missing
+          </h1>
+        </div>
+        <div className="g-alert g-alert-info">
           Playing XI is not set for this match.
-        </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="g-screen">
+      <div className="g-hello">
+        <small>Scorer mode</small>
+        <h1>
+          {battingTeamName ?? 'Team'} <em>batting</em>
+        </h1>
+      </div>
+
+      <div className="g-mini">
         <div>
-          <h1 className="text-lg font-bold">{battingTeamName ?? 'Team'} batting</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {bowlingTeamName ?? 'Opponent'} bowling · {match.overs} overs
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-2xl font-bold">
+          <small>{battingTeamName ?? 'Team'}</small>
+          <span className="g-big">
             {score ? formatScore(score.runs ?? 0, score.wickets ?? 0) : '0/0'}
           </span>
-          <span className="text-sm text-slate-500 dark:text-slate-400">
-            ({formatOvers(score?.balls ?? 0)}/{match.overs})
+        </div>
+        <div className="g-r">
+          <small>RR {score ? formatRunRate(score.runs ?? 0, score.balls ?? 0) : '0.00'}</small>
+          <span className="g-big">{formatOvers(score?.balls ?? 0)}</span>
+        </div>
+      </div>
+
+      <div className="g-panel">
+        <div className="g-panel-head">
+          On strike
+          <span>
+            {bowlingTeamName ?? 'Opponent'} bowling · {match.overs} overs
           </span>
         </div>
-      </header>
 
-      <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2 dark:border-slate-800 dark:bg-slate-900">
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-            Striker
-          </span>
+        <label className="g-field">
+          <span className="g-label">Striker</span>
           <select
             value={strikerId}
             onChange={(event) => setStrikerId(event.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+            className="g-select"
           >
             <option value="">Select striker</option>
             {battingXi.map((player) => (
@@ -186,23 +227,15 @@ export default function ScorerPage() {
             ))}
           </select>
         </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-            Bowler
-            {overJustCompleted && (
-              <span className="ml-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                new over — pick another bowler
-              </span>
-            )}
+
+        <label className="g-field" style={{ marginBottom: 0 }}>
+          <span className="g-label">
+            Bowler{overJustCompleted ? ' · new over, pick another bowler' : ''}
           </span>
           <select
             value={bowlerId}
             onChange={(event) => setBowlerId(event.target.value)}
-            className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-emerald-500 dark:bg-slate-800 dark:text-white ${
-              overJustCompleted
-                ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-400/30 dark:border-amber-500 dark:bg-amber-900/20'
-                : 'border-slate-300 bg-white dark:border-slate-600'
-            }`}
+            className={`g-select${overJustCompleted ? ' g-invalid' : ''}`}
           >
             <option value="">Select bowler</option>
             {bowlingXi.map((player) => (
@@ -212,46 +245,63 @@ export default function ScorerPage() {
             ))}
           </select>
         </label>
-        <p className="text-xs text-slate-400 sm:col-span-2 dark:text-slate-500">
-          {selectedBatter?.name ?? selectedBatter?.email ?? 'Pick a striker'} on strike ·
+
+        <p className="g-note" style={{ marginTop: 12 }}>
+          {selectedBatter?.name ?? selectedBatter?.email ?? 'Pick a striker'} on strike ·{' '}
           {selectedBowler?.name ?? selectedBowler?.email ?? 'pick a bowler'} bowling.
         </p>
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 sm:col-span-2 dark:bg-emerald-900/20 dark:text-emerald-300">
-          Rule: a bowler cannot bowl two overs in a row — each new over must start with a
-          different bowler.
-        </p>
-      </section>
-
-      <div className="flex items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          disabled={!canSend}
-          onClick={() => setShowWicket(true)}
-          className="!border-red-300 !text-red-600 hover:!bg-red-50 dark:!border-red-900 dark:!text-red-400"
-        >
-          Wicket
-        </Button>
-        <UndoButton
-          onUndo={() => undo.mutate()}
-          busy={undo.isPending}
-          disabled={!score?.balls}
-        />
       </div>
 
-      {scoreError && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
-          {getErrorMessage(scoreError, 'Could not record ball')}
-        </p>
+      {overJustCompleted && (
+        <div className="g-alert g-alert-warn">
+          A bowler cannot bowl two overs in a row. Each new over starts with a different bowler.
+        </div>
       )}
 
-      <RunPad onRun={handleRun} />
-      <ExtrasPanel onExtra={handleExtra} />
+      {scoreError && (
+        <div className="g-alert g-alert-error">
+          {getErrorMessage(scoreError, 'Could not record ball')}
+        </div>
+      )}
+
+      <div className="g-pad">
+        {PAD.map((button) => (
+          <button
+            key={button.key}
+            type="button"
+            className={button.cls}
+            disabled={!canSend || record.isPending}
+            onClick={() => {
+              if (button.key === 'w') setShowWicket(true)
+              else if (button.extra) handleExtra(button.extra)
+              else handleRun(button.run)
+            }}
+            style={button.span ? { gridColumn: 'span 2' } : undefined}
+          >
+            {button.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="g-pad-foot">
+        <button
+          type="button"
+          className="g-ghost"
+          onClick={() => undo.mutate()}
+          disabled={undo.isPending || !score?.balls}
+        >
+          Undo last ball
+        </button>
+      </div>
 
       <WicketModal
+        key={showWicket}
         open={showWicket}
         onClose={() => setShowWicket(false)}
         onConfirm={handleWicket}
         busy={record.isPending}
+        players={battingXi}
+        defaultBatterId={strikerId}
       />
     </div>
   )

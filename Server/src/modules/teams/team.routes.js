@@ -9,6 +9,7 @@ import {
   inviteHandler,
   inviteInfoHandler,
   acceptInviteHandler,
+  updateMemberHandler,
   removeMemberHandler,
 } from './team.controller.js'
 import {
@@ -18,6 +19,7 @@ import {
   inviteTokenParamsSchema,
   teamParamsSchema,
   memberParamsSchema,
+  updateMemberSchema,
 } from './team.validation.js'
 
 const router = Router()
@@ -50,6 +52,11 @@ router.post(
   validate({ params: teamParamsSchema, body: inviteSchema }),
   isTeamAdmin,
   inviteHandler,
+)
+router.patch(
+  '/:teamId/members/:memberId',
+  validate({ params: memberParamsSchema, body: updateMemberSchema }),
+  updateMemberHandler,
 )
 router.delete(
   '/:teamId/members/:memberId',

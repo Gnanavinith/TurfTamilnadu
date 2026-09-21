@@ -8,6 +8,7 @@ import {
   listMatchesHandler,
   getMatchHandler,
   startMatchHandler,
+  endMatchHandler,
 } from './match.controller.js'
 import {
   createMatchSchema,
@@ -45,6 +46,14 @@ router.post(
   validate({ params: matchParamsSchema }),
   canManageMatch,
   startMatchHandler,
+)
+
+router.post(
+  '/:matchId/end',
+  authenticate,
+  validate({ params: matchParamsSchema }),
+  canManageMatch,
+  endMatchHandler,
 )
 
 export default router

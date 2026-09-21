@@ -14,7 +14,8 @@ import {
   ballInOver,
   isInningsEnded,
 } from './scoring.utils.js'
-import { addTeamStatsJob } from '../../jobs/queue.js'
+import { addTeamStatsJob, areJobsStarted } from '../../jobs/queue.js'
+import { recomputeAllTeamStats } from '../leaderboard/leaderboard.service.js'
 
 const BOWLER_WICKETS = new Set(['bowled', 'caught', 'lbw', 'stumped', 'hit_wicket'])
 
@@ -277,7 +278,37 @@ async function finalizeAfterBall(match, innings) {
     await match.save()
   }
 
-  await maybeScheduleStats(match._id)
+  await refreshTeamStats(match._id)
+  return { match: await getMatchSnapshot(match._id) }
+}
+
+// Manually close a match (e.g. no-play, rain, or a scoring error that can't be
+// walked back). Marks it abandoned with no result — standings are unaffected
+// because abandoned matches never count as played.
+export async function endMatch(matchId) {
+  const match = await Match.findById(matchId)
+  if (!match) throw ApiError.notFound('Match not found')
+  if (match.status === 'completed') {
+    throw ApiError.badRequest('Match already completed')
+  }
+  if (match.status === 'abandoned') {
+    throw ApiError.badRequest('Match is already abandoned')
+  }
+
+  if (match.currentInningsId) {
+    await Innings.updateOne(
+      { _id: match.currentInningsId },
+      { $set: { status: 'completed' } },
+    )
+  }
+
+  match.status = 'abandoned'
+  match.completedAt = new Date()
+  match.result = undefined
+  await match.save()
+
+  await refreshTeamStats(match._id)
+
   return { match: await getMatchSnapshot(match._id) }
 }
 
@@ -317,11 +348,33 @@ export async function undoLastBall(matchId, requestedBy) {
     await match.save()
   }
 
-  await maybeScheduleStats(match._id)
+  await refreshTeamStats(match._id)
 
   logger.info({ matchId, ballId: String(lastBall._id) }, 'Ball undone')
 
   return { match: await getMatchSnapshot(match._id) }
+}
+
+// Always recompute the standings inline the moment a match completes (or is
+// undone), so the leaderboard is correct even without Redis or background
+// workers. Enqueuing the BullMQ job is only a best-effort nudge for any extra
+// instances that may be running.
+export async function refreshTeamStats(matchId) {
+  try {
+    const match = await Match.findById(matchId)
+      .select('teamAId teamBId')
+      .lean()
+    if (!match) return
+    await recomputeAllTeamStats(
+      [match.teamAId, match.teamBId].filter(Boolean).map(String),
+    )
+
+    if (areJobsStarted()) {
+      await addTeamStatsJob(matchId).catch(() => {})
+    }
+  } catch (err) {
+    logger.warn({ err, matchId }, 'Failed to refresh team stats')
+  }
 }
 
 async function maybeScheduleStats(matchId) {
@@ -332,4 +385,4 @@ async function maybeScheduleStats(matchId) {
   }
 }
 
-export default { recordBall, undoLastBall }
+export default { recordBall, undoLastBall, endMatch }

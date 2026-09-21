@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createMatch } from '../api'
 import { fetchMyTeams, fetchTeam } from '../../teams/api'
-import Loader from '../../../components/Loader'
-import Button from '../../../components/Button'
 import MatchForm from '../components/MatchForm'
 import TossPanel from '../components/TossPanel'
 import PlayingXI from '../components/PlayingXI'
@@ -51,7 +49,15 @@ export default function CreateMatch() {
 
   const teams = teamsQuery.data?.data ?? []
 
-  if (teamsQuery.isLoading) return <Loader label="Loading teams…" />
+  if (teamsQuery.isLoading) {
+    return (
+      <div className="g-screen">
+        <div className="g-skel" />
+        <div className="g-skel" />
+        <div className="g-skel" />
+      </div>
+    )
+  }
 
   const squadsById = new Map()
   for (const detail of [teamAQuery.data?.data, teamBQuery.data?.data]) {
@@ -86,94 +92,88 @@ export default function CreateMatch() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Create Match</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Set up the fixture, toss and playing XI
-          </p>
-        </div>
-        {step > 1 && (
-          <Button variant="ghost" onClick={() => setStep(step - 1)}>
-            Back
-          </Button>
-        )}
+    <div className="g-screen">
+      <div className="g-hello">
+        <small>New fixture</small>
+        <h1>
+          Create <em>match</em>
+        </h1>
       </div>
 
-      <ol className="mb-6 flex flex-wrap items-center gap-2 text-sm">
+      <div className="g-seg" role="list" aria-label="Steps">
         {['Details', 'Toss', 'Playing XI'].map((label, index) => (
-          <li key={label} className="flex items-center gap-2">
-            <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                step === index + 1
-                  ? 'bg-emerald-600 text-white'
-                  : step > index + 1
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
-                    : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
-              }`}
-            >
-              {index + 1}
-            </span>
-            <span
-              className={
-                step === index + 1
-                  ? 'font-medium'
-                  : 'text-slate-400 dark:text-slate-500'
-              }
-            >
-              {label}
-            </span>
-            {index < 2 && <span className="text-slate-300">·</span>}
-          </li>
+          <button
+            key={label}
+            type="button"
+            role="listitem"
+            aria-selected={step === index + 1}
+            disabled
+          >
+            {index + 1}. {label}
+          </button>
         ))}
-      </ol>
+      </div>
 
-      {error && (
-        <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <div className="g-alert g-alert-error">{error}</div>}
 
       {step === 1 && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="g-panel">
           <MatchForm teams={teams} value={form} onChange={setForm} />
-          <div className="mt-6 flex justify-end">
-            <Button
+          <div className="g-btn-row" style={{ marginTop: 18 }}>
+            <button
+              type="button"
+              className="g-btn"
               disabled={!form.teamAId || !form.teamBId || form.teamAId === form.teamBId}
               onClick={() => setStep(2)}
             >
               Next: Toss
-            </Button>
+            </button>
           </div>
-        </section>
+        </div>
       )}
 
       {step === 2 && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="g-panel">
           <TossPanel teams={teams} value={form} onChange={setForm} />
-          {form.tossDone && (
-            <Button className="mt-6" onClick={() => setStep(3)}>
-              Next: Playing XI
-            </Button>
-          )}
-        </section>
+          <div className="g-btn-row" style={{ marginTop: 18 }}>
+            <button type="button" className="g-btn g-btn-ghost" onClick={() => setStep(1)}>
+              Back
+            </button>
+            {form.tossDone && (
+              <button type="button" className="g-btn" onClick={() => setStep(3)}>
+                Next: Playing XI
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {step === 3 && (
         <>
           {squadsLoading ? (
-            <Loader label="Loading squads…" />
+            <div>
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="g-skel" />
+              ))}
+            </div>
           ) : (
             <PlayingXI teams={xiTeams} value={form} onChange={setForm} />
           )}
-          {form.xiDone && (
-            <div className="mt-6 flex justify-end">
-              <Button onClick={handleSubmit} loading={mutation.isPending} size="lg">
-                Create Match
-              </Button>
-            </div>
-          )}
+          <div className="g-btn-row" style={{ marginTop: 18 }}>
+            <button type="button" className="g-btn g-btn-ghost" onClick={() => setStep(2)}>
+              Back
+            </button>
+            {form.xiDone && (
+              <button
+                type="button"
+                className="g-btn"
+                onClick={handleSubmit}
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending ? 'Creating…' : 'Create match'}
+              </button>
+            )}
+          </div>
         </>
       )}
     </div>

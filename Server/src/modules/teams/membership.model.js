@@ -24,6 +24,20 @@ const membershipSchema = new mongoose.Schema(
       enum: ['active', 'invited'],
       default: 'active',
     },
+    specialty: {
+      type: String,
+      enum: ['batter', 'bowler', 'all_rounder', 'wicket_keeper', ''],
+      default: '',
+    },
+    designation: {
+      type: String,
+      enum: ['captain', 'vice_captain', null],
+      default: null,
+    },
+    avatarColor: {
+      type: String,
+      default: '',
+    },
     joinedAt: { type: Date, default: Date.now },
   },
   { timestamps: true },

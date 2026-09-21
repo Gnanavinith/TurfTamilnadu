@@ -1,8 +1,19 @@
 import { z } from 'zod'
 import { emailSchema } from '../auth/auth.validation.js'
 
+export const specialtySchema = z
+  .enum(['batter', 'bowler', 'all_rounder', 'wicket_keeper', ''])
+  .default('')
+
+export const avatarColorSchema = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, 'Invalid color')
+  .optional()
+  .or(z.literal(''))
+
 export const createTeamSchema = z.object({
   name: z.string().trim().min(2).max(60),
+  shortName: z.string().trim().max(12).optional().or(z.literal('')),
   city: z.string().trim().max(60).optional().or(z.literal('')),
   members: z
     .array(
@@ -10,6 +21,7 @@ export const createTeamSchema = z.object({
         email: emailSchema,
         role: z.enum(['admin', 'member']).optional(),
         password: z.string().min(8).max(100).optional(),
+        specialty: specialtySchema.optional(),
       }),
     )
     .max(40)
@@ -38,6 +50,13 @@ export const memberParamsSchema = z.object({
   memberId: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid member id'),
 })
 
+export const updateMemberSchema = z.object({
+  name: z.string().trim().min(2).max(60).optional(),
+  specialty: specialtySchema.optional(),
+  designation: z.enum(['captain', 'vice_captain', 'none']).optional(),
+  avatarColor: avatarColorSchema,
+})
+
 export default {
   createTeamSchema,
   inviteSchema,
@@ -45,4 +64,5 @@ export default {
   inviteTokenParamsSchema,
   teamParamsSchema,
   memberParamsSchema,
+  updateMemberSchema,
 }

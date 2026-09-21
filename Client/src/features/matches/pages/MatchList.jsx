@@ -1,151 +1,188 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMatches } from '../api'
 import { getErrorMessage } from '../../../lib/axios'
-import { STATUS_LABELS, MATCH_STATUS } from '../../../utils/constants'
-import { formatDate, formatTime } from '../../../utils/formatDate'
-import Loader from '../../../components/Loader'
-import Button from '../../../components/Button'
+import { selectUser } from '../../../app/store'
+import { MATCH_STATUS, STATUS_LABELS } from '../../../utils/constants'
+import { formatOvers } from '../../../utils/formatOvers'
+import { teamColor, teamCode } from '../../../utils/teamColor'
+import MatchCard from '../components/MatchCard'
+
+const FILTERS = [
+  { key: '', label: 'All' },
+  { key: MATCH_STATUS.LIVE, label: 'Live' },
+  { key: MATCH_STATUS.SCHEDULED, label: 'Upcoming' },
+  { key: MATCH_STATUS.COMPLETED, label: 'Completed' },
+]
+
+function LiveHero({ match, canScore }) {
+  const s = match.score ?? {}
+  const batting =
+    match.teamA?.id === s.battingTeamId ? match.teamA : match.teamB
+  const bowling =
+    match.teamA?.id === s.battingTeamId ? match.teamB : match.teamA
+  const need = s.target != null ? s.target - (s.runs ?? 0) : null
+  const ballsLeft =
+    s.target != null ? Math.max(match.overs * 6 - (s.balls ?? 0), 0) : 0
+  const progress =
+    s.target != null
+      ? Math.min(100, ((s.runs ?? 0) / s.target) * 100)
+      : Math.min(100, ((s.balls ?? 0) / (match.overs * 6)) * 100)
+
+  return (
+    <div className="g-hero">
+      <div className="g-hero-top">
+        <span className="g-live">
+          <i aria-hidden="true" />
+          Live
+        </span>
+        <span className="g-hero-meta">
+          {match.overs} overs{match.venue ? ` · ${match.venue}` : ''}
+        </span>
+      </div>
+
+      <div className="g-hero-bat">
+        <span className="g-tb" style={{ '--c': teamColor(batting) }} aria-hidden="true">
+          {teamCode(batting)}
+        </span>
+        <div className="g-hero-name">
+          {batting?.name ?? 'Batting'}
+          <small>Batting now</small>
+        </div>
+      </div>
+
+      <div className="g-hero-score">
+        <span className="g-big">
+          {s.runs ?? 0}/{s.wickets ?? 0}
+        </span>
+        <small>{formatOvers(s.balls ?? 0)} ov</small>
+      </div>
+
+      <div className="g-hero-opp">
+        {bowling?.name ?? 'Bowling'}
+        {s.firstInningsRuns != null
+          ? ` ${s.firstInningsRuns}/${s.firstInningsWickets ?? 0}`
+          : ''}
+      </div>
+
+      {need != null && (
+        <div className={`g-need${need <= 0 ? ' g-win' : ''}`}>
+          {need > 0
+            ? `Need ${need} from ${ballsLeft} balls`
+            : 'Target reached'}
+        </div>
+      )}
+
+      <div className="g-bar">
+        <i style={{ width: `${progress}%` }} />
+      </div>
+
+      <Link to={canScore ? `/scoring/${match.id}` : `/live/${match.id}`} className="g-hero-cta">
+        {canScore ? 'Score this match' : 'Watch this match'}
+      </Link>
+    </div>
+  )
+}
+
+function MatchesSkeleton() {
+  return (
+    <div>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="g-skel" />
+      ))}
+    </div>
+  )
+}
 
 export default function MatchList() {
   const [status, setStatus] = useState('')
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
+  const user = useSelector(selectUser)
+  const canScore = ['scorer', 'admin'].includes(user?.role)
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['matches', status],
     queryFn: () => fetchMatches({ status: status || undefined }),
   })
 
-  if (isLoading) return <Loader label="Loading matches…" />
+  const matches = data?.data ?? []
+  const liveMatch = matches.find((match) => match.status === MATCH_STATUS.LIVE)
+
+  const header = (
+    <div className="g-hello">
+      <small>Your fixtures</small>
+      <h1>
+        Matches, <em>live</em>
+      </h1>
+    </div>
+  )
 
   if (error) {
     return (
-      <div className="rounded-xl bg-red-50 p-6 text-center dark:bg-red-900/30">
-        <p className="text-sm text-red-600 dark:text-red-400">
+      <div className="g-screen">
+        {header}
+        <div className="g-alert g-alert-error">
           {getErrorMessage(error, 'Failed to load matches')}
-        </p>
-        <Button variant="outline" onClick={refetch} className="mt-4">
-          Retry
-        </Button>
+        </div>
+        <div className="g-btn-row" style={{ marginTop: 14 }}>
+          <button type="button" className="g-btn g-btn-outline" onClick={refetch}>
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
 
-  const matches = data?.data ?? []
-
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold">Matches</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Your fixtures and live games
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-          >
-            <option value="">All status</option>
-            {Object.values(MATCH_STATUS).map((value) => (
-              <option key={value} value={value}>
-                {STATUS_LABELS[value]}
-              </option>
-            ))}
-          </select>
-          <Link to="/matches/create">
-            <Button>New Match</Button>
-          </Link>
-        </div>
-      </div>
+    <div className="g-screen">
+      {header}
 
-      {matches.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 py-16 text-center dark:border-slate-700">
-          <p className="text-slate-500 dark:text-slate-400">No matches found.</p>
-          <Link to="/matches/create">
-            <Button className="mt-4">Create a match</Button>
-          </Link>
-        </div>
+      {isLoading ? (
+        <MatchesSkeleton />
       ) : (
-        <div className="space-y-3">
-          {matches.map((match) => {
-            const teamA = match.teamA
-            const teamB = match.teamB
-            return (
-              <Link
-                key={match.id}
-                to={`/live/${match.id}`}
-                className="block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+        <>
+          {liveMatch && <LiveHero match={liveMatch} canScore={canScore} />}
+
+          <div className="g-sec-head">
+            <h2>All matches</h2>
+            <Link to="/matches/create" className="g-note">
+              New match
+            </Link>
+          </div>
+
+          <div className="g-seg" role="tablist" aria-label="Match filter">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                role="tab"
+                aria-selected={status === filter.key}
+                onClick={() => setStatus(filter.key)}
               >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate font-semibold">
-                        {teamA?.name ?? 'Team A'} <span className="text-slate-400">vs</span>{' '}
-                        {teamB?.name ?? 'Team B'}
-                      </p>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                          match.status === MATCH_STATUS.LIVE
-                            ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400'
-                            : match.status === MATCH_STATUS.COMPLETED
-                              ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                              : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                        }`}
-                      >
-                        {STATUS_LABELS[match.status] ?? match.status}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                      {match.overs} overs · {formatDate(match.scheduledAt)} at{' '}
-                      {formatTime(match.scheduledAt)}
-                    </p>
-                    {match.status === MATCH_STATUS.COMPLETED && match.result?.winnerTeamId && (
-                      <p className="mt-1 text-sm">
-                        {match.teamA.id === match.result.winnerTeamId ? (
-                          <>
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                              {match.teamA.name} won
-                            </span>
-                            <span className="text-slate-400"> · </span>
-                            <span className="text-slate-500 dark:text-slate-400">
-                              {match.teamB.name} lost
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                              {match.teamB.name} won
-                            </span>
-                            <span className="text-slate-400"> · </span>
-                            <span className="text-slate-500 dark:text-slate-400">
-                              {match.teamA.name} lost
-                            </span>
-                          </>
-                        )}
-                        {match.result.margin && (
-                          <span className="text-xs text-slate-400"> ({match.result.margin})</span>
-                        )}
-                      </p>
-                    )}
-                    {match.score?.summary && (
-                      <p className="mt-1 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                        {match.score.summary}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-emerald-600">→</span>
-                </div>
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {matches.length === 0 ? (
+            <div className="g-empty">
+              <p>
+                {status
+                  ? `No ${STATUS_LABELS[status]?.toLowerCase() ?? ''} matches.`
+                  : 'No matches yet.'}
+              </p>
+              <small>Set up a fixture, pick teams, and start scoring.</small>
+              <Link to="/matches/create" className="g-btn">
+                Create your first match
               </Link>
-            )
-          })}
-        </div>
+            </div>
+          ) : (
+            matches.map((match, i) => (
+              <MatchCard key={match.id} match={match} index={i} />
+            ))
+          )}
+        </>
       )}
     </div>
   )

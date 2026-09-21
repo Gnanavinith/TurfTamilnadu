@@ -1,50 +1,38 @@
-const BALL_LABELS = {
-  W: 'W',
-  wd: '+',
-  nb: '+',
-}
-
-function Ball({ ball }) {
+function ballDisplay(ball) {
   const { runs, kind, wicket } = ball ?? {}
   const isWicket = Boolean(wicket)
   const isExtra = kind === 'wide' || kind === 'no_ball'
 
-  let label = String(runs ?? 0)
-  let cls = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-  if (isWicket) {
-    label = 'W'
-    cls = 'bg-red-600 text-white'
-  } else if (isExtra) {
-    label = BALL_LABELS[kind]
-    cls = 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-  } else if (runs === 4) {
-    cls = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-  } else if (runs === 6) {
-    cls = 'bg-yellow-400 text-black'
+  if (isWicket) return { label: 'W', cls: 'g-ball g-w', title: wicket }
+  if (isExtra) {
+    return {
+      label: kind === 'wide' ? 'Wd' : 'Nb',
+      cls: 'g-ball g-x',
+      title: kind,
+    }
   }
-
-  return (
-    <span
-      className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${cls}`}
-      title={wicket ?? kind ?? `${runs} runs`}
-    >
-      {label}
-    </span>
-  )
+  if (runs === 4) return { label: '4', cls: 'g-ball g-four', title: '4 runs' }
+  if (runs === 6) return { label: '6', cls: 'g-ball g-six', title: '6 runs' }
+  return { label: String(runs ?? 0), cls: 'g-ball', title: `${runs ?? 0} runs` }
 }
 
 function Over({ over, index }) {
   const balls = Array.isArray(over) ? over : []
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-      <span className="w-8 shrink-0 text-xs font-semibold text-slate-400 dark:text-slate-500">
-        O{index + 1}
-      </span>
-      <div className="flex flex-wrap gap-1.5">
+    <div className="g-over-row">
+      <span className="g-rk">O{index + 1}</span>
+      <div className="g-chips">
         {balls.length === 0 ? (
-          <span className="text-xs text-slate-400">—</span>
+          <span className="g-empty-note">No balls</span>
         ) : (
-          balls.map((ball, ballIndex) => <Ball key={ballIndex} ball={ball} />)
+          balls.map((ball, ballIndex) => {
+            const { label, cls, title } = ballDisplay(ball)
+            return (
+              <span key={ballIndex} className={cls} title={title}>
+                {label}
+              </span>
+            )
+          })
         )}
       </div>
     </div>
@@ -53,15 +41,11 @@ function Over({ over, index }) {
 
 export default function OverTimeline({ overs = [] }) {
   if (overs.length === 0) {
-    return (
-      <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">
-        No balls bowled yet.
-      </p>
-    )
+    return <p className="g-empty-note">No balls bowled yet.</p>
   }
 
   return (
-    <div className="space-y-2">
+    <div>
       {overs.map((over, index) => (
         <Over key={index} over={over} index={index} />
       ))}

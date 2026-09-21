@@ -18,9 +18,9 @@ const slugify = (name) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
 
-export async function createTeam({ name, city, members = [], createdBy }) {
+export async function createTeam({ name, shortName, city, members = [], createdBy }) {
   const slug = `${slugify(name)}-${crypto.randomBytes(2).toString('hex')}`
-  const team = await Team.create({ name, slug, city, createdBy })
+  const team = await Team.create({ name, shortName, slug, city, createdBy })
 
   // Creator is the first admin; the rest are stored directly by email.
   await Membership.create({
@@ -32,6 +32,9 @@ export async function createTeam({ name, city, members = [], createdBy }) {
 
   const emails = [...new Set(members.map((member) => member.email))]
   const roleByEmail = new Map(members.map((member) => [member.email, member.role ?? 'member']))
+  const specialtyByEmail = new Map(
+    members.filter((member) => member.specialty).map((member) => [member.email, member.specialty]),
+  )
   const passwordHashes = new Map(
     members
       .filter((member) => member.password)
@@ -84,6 +87,9 @@ export async function createTeam({ name, city, members = [], createdBy }) {
               role: roleByEmail.get(email),
               status: 'active',
               joinedAt: new Date(),
+              ...(specialtyByEmail.has(email)
+                ? { specialty: specialtyByEmail.get(email) }
+                : {}),
             },
           },
           upsert: true,
@@ -115,21 +121,43 @@ export async function listMyTeams(userId) {
   const teamIds = memberships.map((m) => m.teamId)
   const roleMap = new Map(memberships.map((m) => [String(m.teamId), m.role]))
 
-  const [teams, counts] = await Promise.all([
+  const [teams, counts, adminMemberships] = await Promise.all([
     Team.find({ _id: { $in: teamIds } }).sort({ createdAt: -1 }).lean(),
     Membership.aggregate([
       { $match: { teamId: { $in: teamIds }, status: 'active' } },
       { $group: { _id: '$teamId', members: { $sum: 1 } } },
     ]),
+    Membership.find({ teamId: { $in: teamIds }, role: 'admin', status: 'active' })
+      .select('teamId userId')
+      .lean(),
   ])
 
   const countMap = new Map(counts.map((c) => [String(c._id), c.members]))
+
+  const adminUserIds = [...new Set(adminMemberships.map((m) => String(m.userId)))]
+  const adminUsers = adminUserIds.length
+    ? await User.find({ _id: { $in: adminUserIds } })
+        .select('_id email name')
+        .lean()
+    : []
+  const adminUserMap = new Map(adminUsers.map((u) => [String(u._id), u]))
+  const adminsByTeam = new Map()
+  for (const membership of adminMemberships) {
+    const teamId = String(membership.teamId)
+    const user = adminUserMap.get(String(membership.userId)) ?? {}
+    if (!adminsByTeam.has(teamId)) adminsByTeam.set(teamId, [])
+    adminsByTeam.get(teamId).push({
+      id: String(membership.userId),
+      name: user.name ?? user.email ?? null,
+    })
+  }
 
   return teams.map((team) => ({
     ...team,
     id: String(team._id),
     members: countMap.get(String(team._id)) ?? 0,
     role: roleMap.get(String(team._id)),
+    admins: adminsByTeam.get(String(team._id)) ?? [],
   }))
 }
 
@@ -294,7 +322,7 @@ export async function getTeamDetail(teamId) {
     teamId,
     status: 'active',
   })
-    .select('userId role joinedAt')
+    .select('userId role joinedAt specialty designation avatarColor')
     .lean()
 
   const userIds = memberships.map((m) => m.userId)
@@ -317,6 +345,9 @@ export async function getTeamDetail(teamId) {
         name: user.name,
         avatarUrl: user.avatarUrl,
         role: m.role,
+        specialty: m.specialty ?? '',
+        designation: m.designation ?? null,
+        avatarColor: m.avatarColor ?? '',
         joinedAt: m.joinedAt,
       }
     }),
@@ -421,6 +452,53 @@ export async function acceptInvite({ token, userId }) {
   await invite.save()
 
   return invite.teamId
+}
+
+export async function updateMember({ teamId, memberId, updates, updaterId }) {
+  const membership = await Membership.findOne({ teamId, userId: memberId })
+  if (!membership || membership.status !== 'active') {
+    throw ApiError.notFound('Member not found in this team')
+  }
+
+  // Team admins can edit anyone; a member can edit their own profile.
+  const isAdmin = await Membership.exists({
+    teamId,
+    userId: updaterId,
+    role: 'admin',
+    status: 'active',
+  })
+  if (!isAdmin && String(memberId) !== String(updaterId)) {
+    throw ApiError.forbidden('Only team admins can edit other members')
+  }
+
+  const memberUpdates = {}
+  let designation = updates.designation
+  if (designation === 'none') designation = null
+  if (designation === 'captain' || designation === 'vice_captain') {
+    // A team has a single captain and a single vice-captain.
+    await Membership.updateMany(
+      { teamId, userId: { $ne: memberId }, designation },
+      { $set: { designation: null } },
+    )
+  }
+  if (designation !== undefined) memberUpdates.designation = designation
+  if (updates.specialty !== undefined) memberUpdates.specialty = updates.specialty
+  if (updates.avatarColor !== undefined) memberUpdates.avatarColor = updates.avatarColor
+
+  if (updates.name !== undefined) {
+    const user = await User.findByIdAndUpdate(memberId, { $set: { name: updates.name } })
+    if (!user) throw ApiError.notFound('Member not found')
+  }
+
+  const updated = await Membership.findByIdAndUpdate(membership._id, { $set: memberUpdates }, { new: true }).lean()
+
+  return {
+    id: String(updated.userId),
+    ...(updates.name !== undefined ? { name: updates.name } : {}),
+    specialty: updated.specialty,
+    designation: updated.designation,
+    avatarColor: updated.avatarColor,
+  }
 }
 
 export async function removeMember(teamId, memberId) {

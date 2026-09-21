@@ -99,21 +99,23 @@ async function decorateMatches(matches) {
     ...new Set(matches.flatMap((m) => [String(m.teamAId), String(m.teamBId)])),
   ]
   const teams = await Team.find({ _id: { $in: teamIds } })
-    .select('name city logoUrl')
+    .select('name shortName city logoUrl')
     .lean()
   const teamMap = new Map(teams.map((t) => [String(t._id), t]))
 
-  return matches.map((match) => ({
+  const list = matches.map((match) => ({
     id: String(match._id),
     teamA: {
       id: String(match.teamAId),
       name: teamMap.get(String(match.teamAId))?.name ?? 'Team A',
+      shortName: teamMap.get(String(match.teamAId))?.shortName ?? null,
       city: teamMap.get(String(match.teamAId))?.city ?? null,
       logoUrl: teamMap.get(String(match.teamAId))?.logoUrl ?? null,
     },
     teamB: {
       id: String(match.teamBId),
       name: teamMap.get(String(match.teamBId))?.name ?? 'Team B',
+      shortName: teamMap.get(String(match.teamBId))?.shortName ?? null,
       city: teamMap.get(String(match.teamBId))?.city ?? null,
       logoUrl: teamMap.get(String(match.teamBId))?.logoUrl ?? null,
     },
@@ -131,6 +133,47 @@ async function decorateMatches(matches) {
         }
       : null,
   }))
+
+  // Attach the live score so list cards can show e.g. "142/4 (16.3 ov)",
+  // run rate, target and the chasing situation.
+  const liveIds = list
+    .filter((m) => m.status === MATCH_STATUS.LIVE)
+    .map((m) => m.id)
+  if (liveIds.length > 0) {
+    const [liveInnings, firstInningsList] = await Promise.all([
+      Innings.find({ matchId: { $in: liveIds }, status: 'in_progress' }).lean(),
+      Innings.find({ matchId: { $in: liveIds }, order: 1 }).lean(),
+    ])
+    const firstByMatch = new Map(
+      firstInningsList.map((inn) => [String(inn.matchId), inn]),
+    )
+    const scoreByMatch = new Map(
+      liveInnings.map((inn) => {
+        const runs = inn.score?.runs ?? 0
+        const balls = inn.score?.balls ?? 0
+        const first = firstByMatch.get(String(inn.matchId))
+        return [
+          String(inn.matchId),
+          {
+            battingTeamId: String(inn.battingTeamId),
+            bowlingTeamId: String(inn.bowlingTeamId),
+            runs,
+            wickets: inn.score?.wickets ?? 0,
+            balls,
+            rr: balls ? Math.round((runs / (balls / 6)) * 100) / 100 : 0,
+            target: inn.target ?? null,
+            firstInningsRuns: first?.score?.runs ?? null,
+          },
+        ]
+      }),
+    )
+    for (const item of list) {
+      const score = scoreByMatch.get(item.id)
+      if (score) item.score = score
+    }
+  }
+
+  return list
 }
 
 export async function startMatch(matchId) {
@@ -179,8 +222,8 @@ function resolveXiPlayer(id, userMap) {
 
 async function buildSnapshot(match, inningsList, balls) {
   const [teamA, teamB] = await Promise.all([
-    Team.findById(match.teamAId).select('name city logoUrl').lean(),
-    Team.findById(match.teamBId).select('name city logoUrl').lean(),
+    Team.findById(match.teamAId).select('name shortName city logoUrl').lean(),
+    Team.findById(match.teamBId).select('name shortName city logoUrl').lean(),
   ])
 
   const xiUserIds = [
@@ -202,6 +245,20 @@ async function buildSnapshot(match, inningsList, balls) {
     status: inn.status,
     battingTeamId: String(inn.battingTeamId),
     bowlingTeamId: String(inn.bowlingTeamId),
+    battingTeam: {
+      id: String(inn.battingTeamId),
+      name:
+        String(inn.battingTeamId) === String(match.teamAId)
+          ? teamA?.name ?? 'Team A'
+          : teamB?.name ?? 'Team B',
+    },
+    bowlingTeam: {
+      id: String(inn.bowlingTeamId),
+      name:
+        String(inn.bowlingTeamId) === String(match.teamAId)
+          ? teamA?.name ?? 'Team A'
+          : teamB?.name ?? 'Team B',
+    },
     score: inn.score,
     batting: (inn.batting ?? []).map((entry) => ({
       ...entry,
@@ -219,8 +276,8 @@ async function buildSnapshot(match, inningsList, balls) {
 
   return {
     id: String(match._id),
-    teamA: { id: String(teamA?._id), name: teamA?.name ?? 'Team A', city: teamA?.city, logoUrl: teamA?.logoUrl },
-    teamB: { id: String(teamB?._id), name: teamB?.name ?? 'Team B', city: teamB?.city, logoUrl: teamB?.logoUrl },
+    teamA: { id: String(teamA?._id), name: teamA?.name ?? 'Team A', shortName: teamA?.shortName ?? null, city: teamA?.city, logoUrl: teamA?.logoUrl },
+    teamB: { id: String(teamB?._id), name: teamB?.name ?? 'Team B', shortName: teamB?.shortName ?? null, city: teamB?.city, logoUrl: teamB?.logoUrl },
     overs: match.overs,
     status: match.status,
     venue: match.venue,

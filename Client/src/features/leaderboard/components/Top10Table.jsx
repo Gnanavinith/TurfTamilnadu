@@ -1,77 +1,91 @@
-const RANK_CARD = ['text-amber-500', 'text-slate-400', 'text-orange-400']
+import { teamColor, teamCode } from '../../../utils/teamColor'
 
-function TeamRow({ entry, rank }) {
-  const winner = rank === 1
+function Podium({ entry, place, delay }) {
+  const team = entry.team ?? {}
   return (
-    <tr className="border-t border-slate-100 dark:border-slate-800">
-      <td className="py-2.5 pr-2">
-        <span className={`font-bold ${RANK_CARD[rank - 1] ?? 'text-slate-400 dark:text-slate-500'}`}>
-          {rank}
-        </span>
-      </td>
-      <td className="py-2.5 pr-2">
-        <p className="font-medium">
-          {entry.team?.name ?? 'Unknown'}
-          {winner && (
-            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-              Winner
-            </span>
-          )}
-        </p>
-        <p className="text-xs text-slate-400">{entry.team?.city ?? ''}</p>
-      </td>
-      <td className="py-2.5 pr-2 text-right text-slate-500 dark:text-slate-400">{entry.matchesPlayed}</td>
-      <td className="py-2.5 pr-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-        {entry.matchesWon}
-      </td>
-      <td className="py-2.5 pr-2 text-right text-slate-500 dark:text-slate-400">{entry.matchesLost}</td>
-      <td className="py-2.5 pr-2 text-right text-slate-500 dark:text-slate-400">{entry.tied ?? 0}</td>
-      <td className="py-2.5 pr-2 text-right text-slate-500 dark:text-slate-400">
-        {entry.runsScored ?? 0}
-      </td>
-      <td className="py-2.5 pr-2 text-right text-slate-500 dark:text-slate-400">
-        {entry.runsConceded ?? 0}
-      </td>
-      <td className="py-2.5 pr-2 text-right font-semibold">{entry.points ?? 0}</td>
-      <td className="py-2.5 text-right text-slate-500 dark:text-slate-400">
-        {entry.rating != null ? `${entry.rating}%` : '—'}
-      </td>
-    </tr>
+    <div className={`g-pod g-p${place}`}>
+      <span className="g-tb" style={{ '--c': teamColor(team), '--d': delay }} aria-hidden="true">
+        {teamCode(team)}
+      </span>
+      <b>{team.name ?? 'Unknown'}</b>
+      <div className="g-stand" style={{ '--d': delay }}>
+        {place}
+      </div>
+      <small>{entry.points ?? 0} pts</small>
+    </div>
+  )
+}
+
+function Row({ entry, rank, index }) {
+  const team = entry.team ?? {}
+  const record = `${entry.matchesWon ?? 0}W, ${entry.matchesLost ?? 0}L`
+  const rating = entry.rating != null ? `, ${entry.rating}%` : ''
+  return (
+    <div className="g-lrow" style={{ '--i': index }}>
+      <span className="g-rk">{rank}</span>
+      <span className="g-tb g-tb-sm" style={{ '--c': teamColor(team) }} aria-hidden="true">
+        {teamCode(team)}
+      </span>
+      <div className="g-nm">
+        {team.name ?? 'Unknown'}
+        <small>
+          {record}
+          {rating}
+        </small>
+      </div>
+      <div className="g-pts">
+        {entry.points ?? 0}
+        <small>pts</small>
+      </div>
+    </div>
   )
 }
 
 export default function Top10Table({ entries = [] }) {
   if (entries.length === 0) {
     return (
-      <p className="py-10 text-center text-sm text-slate-400 dark:text-slate-500">
-        No completed matches yet — play a match to build the standings.
-      </p>
+      <div className="g-empty">
+        <p>No standings yet.</p>
+        <small>Play a match to build the standings.</small>
+      </div>
     )
   }
 
+  if (entries.length < 3) {
+    return (
+      <div>
+        {entries.map((entry, index) => (
+          <Row
+            key={entry.team?._id ?? entry.teamId ?? index}
+            entry={entry}
+            rank={index + 1}
+            index={index}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  const [first, second, third, ...rest] = entries
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-left text-sm">
-        <thead>
-          <tr className="text-xs text-slate-400 dark:text-slate-500">
-            <th className="pb-2 pr-2 font-medium">#</th>
-            <th className="pb-2 pr-2 font-medium">Team</th>
-            <th className="pb-2 pr-2 text-right font-medium">Pld</th>
-            <th className="pb-2 pr-2 text-right font-medium">W</th>
-            <th className="pb-2 pr-2 text-right font-medium">L</th>
-            <th className="pb-2 pr-2 text-right font-medium">T</th>
-            <th className="pb-2 pr-2 text-right font-medium">For</th>
-            <th className="pb-2 pr-2 text-right font-medium">Against</th>
-            <th className="pb-2 pr-2 text-right font-medium">Pts</th>
-            <th className="pb-2 text-right font-medium">Rating</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry, index) => (
-            <TeamRow key={entry.team?._id ?? entry.teamId ?? index} entry={entry} rank={index + 1} />
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div className="g-podium">
+        <Podium entry={second} place={2} delay="0.15s" />
+        <Podium entry={first} place={1} delay="0s" />
+        <Podium entry={third} place={3} delay="0.3s" />
+      </div>
+
+      <div style={{ marginTop: 8 }}>
+        {rest.map((entry, index) => (
+          <Row
+            key={entry.team?._id ?? entry.teamId ?? index}
+            entry={entry}
+            rank={index + 4}
+            index={index}
+          />
+        ))}
+      </div>
     </div>
   )
 }

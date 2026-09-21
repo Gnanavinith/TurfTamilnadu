@@ -9,6 +9,11 @@ const teamSchema = new mongoose.Schema(
       minlength: 2,
       maxlength: 60,
     },
+    shortName: {
+      type: String,
+      trim: true,
+      maxlength: 12,
+    },
     slug: {
       type: String,
       unique: true,

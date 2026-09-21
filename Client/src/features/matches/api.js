@@ -16,6 +16,10 @@ export function startMatch(matchId, payload) {
   return http.post(`/matches/${matchId}/start`, payload)
 }
 
+export function endMatch(matchId) {
+  return http.post(`/matches/${matchId}/end`).then((res) => res.data)
+}
+
 export function updateMatch(matchId, payload) {
   return http.patch(`/matches/${matchId}`, payload)
 }

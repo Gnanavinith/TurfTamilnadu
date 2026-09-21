@@ -17,9 +17,14 @@ export const updateProfile = asyncHandler(async (req, res) => {
   res.json({ success: true, data: user })
 })
 
-export const listUsers = asyncHandler(async (_req, res) => {
-  const users = await getUsers()
-  res.json({ success: true, data: users })
+export const listUsers = asyncHandler(async (req, res) => {
+  const { users, pagination } = await getUsers({
+    search: req.query.search,
+    role: req.query.role,
+    page: Number(req.query.page),
+    limit: Number(req.query.limit),
+  })
+  res.json({ success: true, data: users, pagination })
 })
 
 export const updateUserRole = asyncHandler(async (req, res) => {

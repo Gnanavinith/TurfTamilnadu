@@ -1,25 +1,38 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchLeaderboard } from '../api'
 import { getErrorMessage } from '../../../lib/axios'
-import Loader from '../../../components/Loader'
 import Top10Table from '../components/Top10Table'
 
 export default function LeaderboardPage() {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['leaderboard'],
     queryFn: fetchLeaderboard,
     staleTime: 0,
     refetchOnMount: 'always',
+    refetchInterval: 30_000,
   })
 
-  if (isLoading) return <Loader label="Loading leaderboard…" />
+  const header = (
+    <div className="g-hello">
+      <small>Season standings</small>
+      <h1>
+        Top 10 <em>teams</em>
+      </h1>
+    </div>
+  )
 
   if (error) {
     return (
-      <div className="rounded-xl bg-red-50 p-6 text-center dark:bg-red-900/30">
-        <p className="text-sm text-red-600 dark:text-red-400">
+      <div className="g-screen">
+        {header}
+        <div className="g-alert g-alert-error">
           {getErrorMessage(error, 'Failed to load leaderboard')}
-        </p>
+        </div>
+        <div className="g-btn-row" style={{ marginTop: 14 }}>
+          <button type="button" className="g-btn g-btn-outline" onClick={refetch}>
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
@@ -27,17 +40,18 @@ export default function LeaderboardPage() {
   const entries = data?.data?.entries ?? data?.data ?? []
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <header className="mb-6">
-        <h1 className="text-xl font-bold">Team Standings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Winning teams ranked by points and rating
-        </p>
-      </header>
+    <div className="g-screen">
+      {header}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      {isLoading ? (
+        <div>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="g-skel" />
+          ))}
+        </div>
+      ) : (
         <Top10Table entries={entries} />
-      </section>
+      )}
     </div>
   )
 }

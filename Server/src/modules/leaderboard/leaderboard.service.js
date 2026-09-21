@@ -90,16 +90,34 @@ export async function recomputeAllTeamStats(teamIds) {
 }
 
 export async function getLeaderboard(limit = 10) {
-  const stats = await TeamStats.find()
+  let stats = await TeamStats.find()
     .sort({ rating: -1, points: -1, runsScored: -1 })
     .limit(limit)
     .lean()
+
+  // Self-heal: if nothing is in the standings but matches have completed
+  // (e.g. recompute never ran because Redis/workers were unavailable), build
+  // the stats on demand so the leaderboard is never silently empty.
+  if (stats.length === 0) {
+    const [teamAIds, teamBIds] = await Promise.all([
+      Match.distinct('teamAId', { status: 'completed' }),
+      Match.distinct('teamBId', { status: 'completed' }),
+    ])
+    const teamIds = [...new Set([...teamAIds, ...teamBIds])].filter(Boolean)
+    if (teamIds.length > 0) {
+      await recomputeAllTeamStats(teamIds.map(String))
+      stats = await TeamStats.find()
+        .sort({ rating: -1, points: -1, runsScored: -1 })
+        .limit(limit)
+        .lean()
+    }
+  }
 
   if (stats.length === 0) return []
 
   const teamIds = stats.map((s) => s.teamId)
   const teams = await Team.find({ _id: { $in: teamIds } })
-    .select('name city logoUrl')
+    .select('name shortName city logoUrl')
     .lean()
 
   const teamMap = new Map(teams.map((t) => [String(t._id), t]))

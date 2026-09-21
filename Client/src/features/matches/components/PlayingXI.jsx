@@ -92,11 +92,15 @@ export default function PlayingXI({ teams, value, onChange }) {
           onToggle={(id) => toggle('teamBXI', id)}
         />
       </div>
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Pick up to {XI_SIZE} players per squad (at least 1 each).
         </p>
-        <Button disabled={!canSubmit} onClick={() => onChange({ ...value, xiDone: true })}>
+        <Button
+          disabled={!canSubmit}
+          className="w-full sm:w-auto"
+          onClick={() => onChange({ ...value, xiDone: true })}
+        >
           Confirm Playing XI
         </Button>
       </div>

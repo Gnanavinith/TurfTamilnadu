@@ -35,6 +35,7 @@ http.interceptors.response.use(
           credentialsSet({
             accessToken: data.data.accessToken,
             refreshToken: data.data.refreshToken,
+            user: data.data.user ?? store.getState().auth.user,
           }),
         )
         original.headers.Authorization = `Bearer ${data.data.accessToken}`

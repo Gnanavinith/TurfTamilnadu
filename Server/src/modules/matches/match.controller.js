@@ -1,4 +1,5 @@
 import { asyncHandler } from '../../utils/asyncHandler.js'
+import { endMatch } from '../scoring/scoring.service.js'
 import {
   createMatch,
   listMatches,
@@ -33,9 +34,15 @@ export const startMatchHandler = asyncHandler(async (req, res) => {
   res.json({ success: true, data: match })
 })
 
+export const endMatchHandler = asyncHandler(async (req, res) => {
+  const result = await endMatch(req.params.matchId)
+  res.json({ success: true, data: result })
+})
+
 export default {
   createMatchHandler,
   listMatchesHandler,
   getMatchHandler,
   startMatchHandler,
+  endMatchHandler,
 }

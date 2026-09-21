@@ -31,3 +31,7 @@ export function acceptInvite(token) {
 export function removeMember(teamId, memberId) {
   return http.delete(`/teams/${teamId}/members/${memberId}`)
 }
+
+export function updateMember(teamId, memberId, payload) {
+  return http.patch(`/teams/${teamId}/members/${memberId}`, payload).then((res) => res.data)
+}

@@ -31,9 +31,39 @@ export async function updateUserById(userId, updates) {
   return user ? sanitizeUser(user) : null
 }
 
-export async function listUsers() {
-  const users = await User.find().select(SELECT_PROFILE).sort({ createdAt: -1 }).lean()
-  return users.map(sanitizeUser)
+export async function listUsers({ search, role, page = 1, limit = 20 } = {}) {
+  const filter = {}
+  if (role) filter.role = role
+  if (search && search.trim()) {
+    const term = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    filter.$or = [
+      { name: { $regex: term, $options: 'i' } },
+      { email: { $regex: term, $options: 'i' } },
+    ]
+  }
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100)
+  const safePage = Math.max(Number(page) || 1, 1)
+
+  const [total, users] = await Promise.all([
+    User.countDocuments(filter),
+    User.find(filter)
+      .select(SELECT_PROFILE)
+      .sort({ createdAt: -1 })
+      .skip((safePage - 1) * safeLimit)
+      .limit(safeLimit)
+      .lean(),
+  ])
+
+  return {
+    users: users.map(sanitizeUser),
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+    },
+  }
 }
 
 export async function updateUserRoleById(userId, role) {

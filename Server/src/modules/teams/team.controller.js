@@ -6,12 +6,14 @@ import {
   inviteMember,
   getInviteInfo,
   acceptInvite,
+  updateMember,
   removeMember,
 } from './team.service.js'
 
 export const createTeamHandler = asyncHandler(async (req, res) => {
   const team = await createTeam({
     name: req.body.name,
+    shortName: req.body.shortName,
     city: req.body.city,
     members: req.body.members,
     createdBy: req.user._id,
@@ -51,6 +53,16 @@ export const acceptInviteHandler = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { teamId } })
 })
 
+export const updateMemberHandler = asyncHandler(async (req, res) => {
+  const updated = await updateMember({
+    teamId: req.params.teamId,
+    memberId: req.params.memberId,
+    updates: req.body,
+    updaterId: req.user._id,
+  })
+  res.json({ success: true, data: updated })
+})
+
 export const removeMemberHandler = asyncHandler(async (req, res) => {
   await removeMember(req.params.teamId, req.params.memberId)
   res.status(204).send()
@@ -63,5 +75,6 @@ export default {
   inviteHandler,
   inviteInfoHandler,
   acceptInviteHandler,
+  updateMemberHandler,
   removeMemberHandler,
 }

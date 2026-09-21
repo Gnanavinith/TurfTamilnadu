@@ -27,6 +27,10 @@ export async function addTeamStatsJob(matchId) {
   )
 }
 
+export function areJobsStarted() {
+  return jobsStarted
+}
+
 export async function addCleanupJob() {
   if (!jobsStarted) return
   await cleanupQueue.add('periodic', {}, { attempts: 1 })

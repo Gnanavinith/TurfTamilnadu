@@ -3,12 +3,12 @@ import { Link, useParams } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { getErrorMessage } from '../../../lib/axios'
 import { useLiveMatch } from '../hooks/useLiveMatch'
-import { startMatch } from '../../matches/api'
+import { startMatch, endMatch } from '../../matches/api'
 import { selectUser } from '../../../app/store'
-import { STATUS_LABELS, MATCH_STATUS } from '../../../utils/constants'
+import { MATCH_STATUS } from '../../../utils/constants'
 import { formatDate, formatTime } from '../../../utils/formatDate'
-import Loader from '../../../components/Loader'
-import Button from '../../../components/Button'
+import ConfirmDialog from '../../../components/ConfirmDialog'
+import { useToast } from '../../../components/ToastContext'
 import Scoreboard from '../components/Scoreboard'
 import OverTimeline from '../components/OverTimeline'
 import Scorecard from '../components/Scorecard'
@@ -17,27 +17,38 @@ export default function LiveMatchPage() {
   const { matchId } = useParams()
   const { match, isLoading, error, refetch } = useLiveMatch(matchId)
   const user = useSelector(selectUser)
+  const { showToast } = useToast()
   const [starting, setStarting] = useState(false)
+  const [ending, setEnding] = useState(false)
+  const [confirmEnd, setConfirmEnd] = useState(false)
   const [actionError, setActionError] = useState('')
 
   const canScore = ['scorer', 'admin'].includes(user?.role)
 
-  if (isLoading) return <Loader label="Loading match…" />
-
-  if (error) {
+  if (isLoading) {
     return (
-      <div className="rounded-xl bg-red-50 p-6 text-center dark:bg-red-900/30">
-        <p className="text-sm text-red-600 dark:text-red-400">
-          {getErrorMessage(error, 'Match not found')}
-        </p>
-        <Link to="/" className="mt-4 inline-block text-sm text-emerald-600 hover:underline">
-          Back to matches
-        </Link>
+      <div className="g-screen">
+        <div className="g-skel" />
+        <div className="g-skel" />
+        <div className="g-skel" />
       </div>
     )
   }
 
-  if (!match) return <Loader label="Loading match…" />
+  if (error) {
+    return (
+      <div className="g-screen">
+        <div className="g-alert g-alert-error">{getErrorMessage(error, 'Match not found')}</div>
+        <div className="g-btn-row" style={{ marginTop: 14 }}>
+          <Link to="/" className="g-btn g-btn-outline">
+            Back to matches
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (!match) return null
 
   const overCount = Array.isArray(match.oversTimeline) ? match.oversTimeline.length : 0
 
@@ -54,67 +65,89 @@ export default function LiveMatchPage() {
     }
   }
 
+  const handleEnd = async () => {
+    setActionError('')
+    setConfirmEnd(false)
+    setEnding(true)
+    try {
+      await endMatch(match.id)
+      await refetch()
+      showToast('Match ended')
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Could not end the match'))
+    } finally {
+      setEnding(false)
+    }
+  }
+
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">
-            {match.teamA?.name ?? 'Team A'} <span className="text-slate-400">vs</span>{' '}
-            {match.teamB?.name ?? 'Team B'}
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {formatDate(match.scheduledAt)} · {formatTime(match.scheduledAt)}
-            {match.venue ? ` · ${match.venue}` : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canScore && match.status === MATCH_STATUS.SCHEDULED && (
-            <Button onClick={handleStart} loading={starting}>
-              Start match
-            </Button>
-          )}
-          {canScore && match.status === MATCH_STATUS.LIVE && (
-            <Link to={`/scoring/${match.id}`}>
-              <Button>Score match</Button>
-            </Link>
-          )}
+    <div className="g-screen">
+      <div className="g-hello">
+        <small>
+          {formatDate(match.scheduledAt)} · {formatTime(match.scheduledAt)}
+          {match.venue ? ` · ${match.venue}` : ''}
+        </small>
+        <h1>
+          {match.teamA?.name ?? 'Team A'} <em>vs</em> {match.teamB?.name ?? 'Team B'}
+        </h1>
+      </div>
+
+      <div className="g-btn-row" style={{ marginBottom: 14 }}>
+        {canScore && match.status === MATCH_STATUS.SCHEDULED && (
           <button
             type="button"
-            onClick={() => refetch()}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="g-btn"
+            onClick={handleStart}
+            disabled={starting}
           >
-            Refresh
+            {starting ? 'Starting…' : 'Start match'}
           </button>
-        </div>
-      </header>
+        )}
+        {canScore && match.status === MATCH_STATUS.LIVE && (
+          <Link to={`/scoring/${match.id}`} className="g-btn">
+            Score match
+          </Link>
+        )}
+        {canScore &&
+          ![MATCH_STATUS.COMPLETED, MATCH_STATUS.ABANDONED].includes(match.status) && (
+            <button
+              type="button"
+              className="g-btn g-btn-danger"
+              onClick={() => setConfirmEnd(true)}
+            >
+              End match
+            </button>
+          )}
+        <button type="button" className="g-btn g-btn-ghost" onClick={() => refetch()}>
+          Refresh
+        </button>
+      </div>
 
-      {actionError && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
-          {actionError}
-        </p>
-      )}
-
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-        {STATUS_LABELS[match.status] ?? match.status}
-      </p>
+      {actionError && <div className="g-alert g-alert-error">{actionError}</div>}
 
       <Scoreboard match={match} />
 
       {overCount > 0 && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-            Over by over
-          </h2>
+        <div className="g-panel">
+          <div className="g-panel-head">Over by over</div>
           <OverTimeline overs={match.oversTimeline} />
-        </section>
+        </div>
       )}
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          Scorecard
-        </h2>
-        <Scorecard match={match} />
-      </section>
+      <div className="g-sec-head">
+        <h2>Scorecard</h2>
+      </div>
+      <Scorecard match={match} />
+
+      <ConfirmDialog
+        open={confirmEnd}
+        title="End this match?"
+        message="This marks the match as abandoned with no result. No points are awarded and it can't be undone."
+        confirmLabel="End match"
+        busy={ending}
+        onConfirm={handleEnd}
+        onClose={() => setConfirmEnd(false)}
+      />
     </div>
   )
 }
