@@ -7,9 +7,7 @@ export default function LeaderboardPage() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['leaderboard'],
     queryFn: fetchLeaderboard,
-    staleTime: 0,
-    refetchOnMount: 'always',
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   })
 
   const header = (

@@ -1035,6 +1035,133 @@
   100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
 }
 
+/* ---------- Public landing (wider shell) ---------- */
+.g-public .g-app {
+  max-width: min(720px, 100%);
+}
+.g-public-main {
+  padding-bottom: var(--space-8);
+}
+.g-public-lede {
+  margin: 10px 0 0;
+  max-width: 42ch;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: var(--g-muted);
+}
+.g-public-cta {
+  margin-bottom: 8px;
+}
+.g-public-section {
+  margin-top: 8px;
+}
+.g-public-foot {
+  padding: 22px 18px calc(18px + env(safe-area-inset-bottom, 0));
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--g-muted);
+  border-top: 1px solid var(--g-line);
+}
+.g-sec-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.g-sec-live .g-live-dot {
+  background: var(--g-wkt);
+}
+
+/* ---------- Profile stats (modals) ---------- */
+.g-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+@media (min-width: 480px) {
+  .g-stat-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+.g-stat {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--g-surface-2);
+}
+.g-stat small {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--g-muted);
+}
+.g-stat strong {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--g-ink);
+}
+.g-stat-highlight strong {
+  color: var(--g-brand);
+}
+.g-avatar-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+.g-profile-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+.g-badge-xs {
+  font-size: 9px;
+  padding: 2px 8px;
+}
+.g-empty-sm {
+  padding: 28px 16px;
+  font-size: 13px;
+}
+.g-profile-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--g-line);
+}
+.g-profile-history-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--g-line);
+  font-size: 14px;
+  font-weight: 600;
+}
+.g-subhead {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--g-muted);
+}
+.g-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gully *,
   .gully *::before,

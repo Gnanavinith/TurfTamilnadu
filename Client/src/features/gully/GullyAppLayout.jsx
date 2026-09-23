@@ -6,7 +6,6 @@ import { useAuth } from '../auth/hooks/useAuth'
 import { fetchMatches } from '../matches/api'
 import { MATCH_STATUS } from '../../utils/constants'
 import { GullyFeedbackProvider } from './feedback'
-import './gully.css'
 
 function TabIcon({ name }) {
   if (name === 'home') {
@@ -38,8 +37,10 @@ function TabIcon({ name }) {
 
 function TickerStrip() {
   const { data } = useQuery({
-    queryKey: ['matches', 'ticker'],
+    queryKey: ['matches', ''],
     queryFn: () => fetchMatches({}),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   })
 
   const items = useMemo(() => {

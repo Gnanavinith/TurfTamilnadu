@@ -26,12 +26,14 @@ export default function Modal({ open, onClose, title, children, footer }) {
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
+      <div className="relative w-full max-w-md rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-md)]">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-[var(--text)]">
+            {title}
+          </h2>
           <button
             type="button"
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            className="rounded-md p-1 text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
             onClick={onClose}
             aria-label="Close"
           >
@@ -40,7 +42,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
             </svg>
           </button>
         </div>
-        <div className="text-sm">{children}</div>
+        <div className="text-sm text-[var(--text)]">{children}</div>
         {footer && <div className="mt-6 flex justify-end gap-2">{footer}</div>}
       </div>
     </div>

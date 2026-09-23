@@ -138,7 +138,7 @@ export default function OnboardingPage() {
           <span className="ob-cta-ball" aria-hidden="true" />
           Quick match
         </button>
-        <Link to="/app" className="ob-cta-ghost">
+        <Link to="/home" className="ob-cta-ghost">
           Browse live matches
         </Link>
         <p className="ob-hint">Quick match signs you in, then opens your match list.</p>

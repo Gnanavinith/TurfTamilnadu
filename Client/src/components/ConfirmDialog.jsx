@@ -27,7 +27,7 @@ export default function ConfirmDialog({
         </>
       }
     >
-      <p className="text-slate-600 dark:text-slate-300">{message}</p>
+      <p className="text-[var(--text-muted)]">{message}</p>
     </Modal>
   )
 }

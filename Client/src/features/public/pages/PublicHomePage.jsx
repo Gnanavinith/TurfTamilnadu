@@ -3,27 +3,23 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchPublicMatches, fetchPublicLeaderboard } from '../api'
 import { MATCH_STATUS } from '../../../utils/constants'
 import { getErrorMessage } from '../../../lib/axios'
-import Button from '../../../components/Button'
-import Skeleton from '../../../components/Skeleton'
 import MatchCard from '../../matches/components/MatchCard'
 import Top10Table from '../../leaderboard/components/Top10Table'
 
-function HomeHeader() {
+function PublicHeader() {
   return (
-    <header className="border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-        <Link to="/home" className="flex items-center gap-2 font-bold text-emerald-600">
-          <img src="/throw.png" alt="Turf logo" className="h-8 w-8 rounded object-contain" />
-          Turf
+    <header className="g-topbar">
+      <Link to="/home" className="g-brand">
+        <span className="g-ball-icon" aria-hidden="true" />
+        Turf
+      </Link>
+      <div className="g-top-actions">
+        <Link to="/login" className="g-link g-note">
+          Follow live →
         </Link>
-        <div className="flex items-center gap-2">
-          <Link to="/login">
-            <Button variant="outline">Sign in</Button>
-          </Link>
-          <Link to="/onboarding">
-            <Button>Get started</Button>
-          </Link>
-        </div>
+        <Link to="/login" className="g-btn g-btn-sm">
+          Sign in
+        </Link>
       </div>
     </header>
   )
@@ -31,21 +27,9 @@ function HomeHeader() {
 
 function LiveSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="g-stack">
       {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-        >
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-3 w-1/4" />
-            </div>
-            <Skeleton className="h-5 w-14 rounded-full" />
-          </div>
-        </div>
+        <div key={i} className="g-skel" />
       ))}
     </div>
   )
@@ -61,6 +45,7 @@ export default function PublicHomePage() {
   const upcomingQuery = useQuery({
     queryKey: ['public', 'matches', 'upcoming'],
     queryFn: () => fetchPublicMatches({ status: MATCH_STATUS.SCHEDULED }),
+    staleTime: 60_000,
   })
 
   const leaderboardQuery = useQuery({
@@ -74,102 +59,101 @@ export default function PublicHomePage() {
   const entries = leaderboardQuery.data?.data ?? []
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <HomeHeader />
+    <div className="gully g-public">
+      <div className="g-app">
+        <PublicHeader />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-        <section className="mb-10 max-w-2xl">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Score turf cricket matches, live.
-          </h1>
-          <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">
-            Turf keeps your league's scores, standings and player stats in one
-            place — score a match from any phone, share the link, and watch it
-            update ball by ball.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/login">
-              <Button size="lg">Sign in to score</Button>
-            </Link>
-            <Link to="/login">
-              <Button size="lg" variant="outline">
+        <main className="g-main g-public-main">
+          <div className="g-screen">
+            <div className="g-hello">
+              <small>Public feed</small>
+              <h1>
+                Score turf cricket matches, <em>live</em>.
+              </h1>
+              <p className="g-public-lede">
+                Turf keeps your league&apos;s scores, standings and player stats in one place —
+                score a match from any phone, share the link, and watch it update ball by ball.
+              </p>
+            </div>
+
+            <div className="g-btn-row g-public-cta">
+              <Link to="/login" className="g-btn">
+                Sign in to score
+              </Link>
+              <Link to="/login" className="g-btn g-btn-outline">
                 Jump in as a player
-              </Button>
-            </Link>
-          </div>
-        </section>
-
-        <section className="mb-12">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <span className="h-2 w-2 rounded-full bg-red-500">
-                <span className="block h-full w-full animate-ping rounded-full bg-red-500" />
-              </span>
-              Live matches
-            </h2>
-            <Link to="/login" className="text-sm text-emerald-600 hover:underline">
-              Follow live →
-            </Link>
-          </div>
-          {liveQuery.isLoading ? (
-            <LiveSkeleton />
-          ) : liveQuery.error ? (
-            <p className="rounded-xl bg-red-50 p-6 text-center text-sm text-red-600 dark:bg-red-900/30">
-              {getErrorMessage(liveQuery.error, 'Could not load live matches')}
-            </p>
-          ) : liveMatches.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
-              <p className="text-slate-500 dark:text-slate-400">
-                No matches are live right now.
-              </p>
-              <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
-                Check back when a match starts, or catch an upcoming fixture below.
-              </p>
+              </Link>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {liveMatches.map((match) => (
-                <MatchCard key={match.id} match={match} linkTo="/login" />
-              ))}
-            </div>
-          )}
-        </section>
 
-        {upcomingMatches.length > 0 && (
-          <section className="mb-12">
-            <h2 className="mb-4 text-lg font-semibold">Coming up</h2>
-            <div className="space-y-3">
-              {upcomingMatches.map((match) => (
-                <MatchCard key={match.id} match={match} linkTo="/login" />
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Top 10 teams</h2>
-            <Link to="/login" className="text-sm text-emerald-600 hover:underline">
-              See the full standings →
-            </Link>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            {leaderboardQuery.isLoading ? (
-              <div className="space-y-3">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} className="h-6 w-full" />
-                ))}
+            <section className="g-public-section">
+              <div className="g-sec-head">
+                <h2 className="g-sec-live">
+                  <span className="g-live-dot" aria-hidden="true" />
+                  Live matches
+                </h2>
+                <Link to="/login" className="g-note g-link">
+                  Follow live →
+                </Link>
               </div>
-            ) : (
-              <Top10Table entries={entries} />
-            )}
-          </div>
-        </section>
-      </main>
+              {liveQuery.isLoading ? (
+                <LiveSkeleton />
+              ) : liveQuery.error ? (
+                <div className="g-alert g-alert-error">
+                  {getErrorMessage(liveQuery.error, 'Could not load live matches')}
+                </div>
+              ) : liveMatches.length === 0 ? (
+                <div className="g-empty">
+                  <p>No matches are live right now.</p>
+                  <small>Check back when a match starts, or catch an upcoming fixture below.</small>
+                </div>
+              ) : (
+                <div className="g-stack">
+                  {liveMatches.map((match, i) => (
+                    <MatchCard key={match.id} match={match} linkTo="/login" index={i} />
+                  ))}
+                </div>
+              )}
+            </section>
 
-      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
-        Turf · turf cricket scoring
-      </footer>
+            {upcomingMatches.length > 0 && (
+              <section className="g-public-section">
+                <div className="g-sec-head">
+                  <h2>Coming up</h2>
+                </div>
+                <div className="g-stack">
+                  {upcomingMatches.map((match, i) => (
+                    <MatchCard key={match.id} match={match} linkTo="/login" index={i} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className="g-public-section">
+              <div className="g-sec-head">
+                <h2>Top 10 teams</h2>
+                <Link to="/login" className="g-note g-link">
+                  Full standings →
+                </Link>
+              </div>
+              {leaderboardQuery.isLoading ? (
+                <div>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div key={i} className="g-skel" />
+                  ))}
+                </div>
+              ) : leaderboardQuery.error ? (
+                <div className="g-alert g-alert-error">
+                  {getErrorMessage(leaderboardQuery.error, 'Could not load standings')}
+                </div>
+              ) : (
+                <Top10Table entries={entries} />
+              )}
+            </section>
+          </div>
+        </main>
+
+        <footer className="g-public-foot">Turf · turf cricket scoring</footer>
+      </div>
     </div>
   )
 }

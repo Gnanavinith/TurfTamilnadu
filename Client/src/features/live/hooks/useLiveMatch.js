@@ -14,7 +14,7 @@ export function useLiveMatch(matchId) {
   })
 
   useEffect(() => {
-    if (!matchId || !socketClient?.connected) return undefined
+    if (!matchId || !socketClient) return undefined
 
     const key = ['match', matchId]
     const onUpdate = (payload) => {
@@ -26,12 +26,22 @@ export function useLiveMatch(matchId) {
         return { data: { ...merged, ...payload } }
       })
     }
+    const subscribe = () => {
+      if (socketClient.connected) {
+        socketClient.emit('match:subscribe', matchId)
+      }
+    }
 
-    socketClient.emit('match:subscribe', matchId)
+    subscribe()
+    socketClient.on('connect', subscribe)
     socketClient.on('match:update', onUpdate)
     socketClient.on('match:score', onScored)
 
     return () => {
+      if (socketClient.connected) {
+        socketClient.emit('match:unsubscribe', matchId)
+      }
+      socketClient.off('connect', subscribe)
       socketClient.off('match:update', onUpdate)
       socketClient.off('match:score', onScored)
     }

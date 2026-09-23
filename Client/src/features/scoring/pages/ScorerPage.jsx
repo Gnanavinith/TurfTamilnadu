@@ -31,7 +31,6 @@ export default function ScorerPage() {
 
   const { record, undo, error: scoreError } = useScorer({
     matchId,
-    onRecorded: () => refetch(),
   })
 
   const inning = match?.currentInnings ?? null
