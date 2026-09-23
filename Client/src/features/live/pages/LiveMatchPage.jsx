@@ -36,9 +36,19 @@ export default function LiveMatchPage() {
   }
 
   if (error) {
+    const notFound = error?.response?.status === 404
     return (
       <div className="g-screen">
-        <div className="g-alert g-alert-error">{getErrorMessage(error, 'Match not found')}</div>
+        <div className="g-hello">
+          <small>Could not load match</small>
+          <h1>
+            {notFound ? 'Match not <em>found</em>' : 'Something went <em>wrong</em>'}
+          </h1>
+        </div>
+        <div className="g-alert g-alert-error">
+          {getErrorMessage(error, 'Match not found')}
+          {notFound ? ' It may have been deleted or the link is incorrect.' : ' Try again in a moment.'}
+        </div>
         <div className="g-btn-row" style={{ marginTop: 14 }}>
           <Link to="/" className="g-btn g-btn-outline">
             Back to matches

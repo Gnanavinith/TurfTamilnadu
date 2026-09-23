@@ -10,7 +10,8 @@ export function useLiveMatch(matchId) {
   const query = useQuery({
     queryKey: ['match', matchId],
     queryFn: () => fetchMatch(matchId),
-    refetchInterval: 30_000,
+    refetchInterval: (queryState) => (queryState.state.error ? false : 30_000),
+    retry: false,
   })
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useScorer } from '../hooks/useScorer'
 import { useLiveMatch } from '../../live/hooks/useLiveMatch'
 import { useGullyFeedback } from '../../gully/feedback'
@@ -89,10 +89,23 @@ export default function ScorerPage() {
   }
 
   if (error) {
+    const notFound = error?.response?.status === 404
     return (
       <div className="g-screen">
+        <div className="g-hello">
+          <small>Scorer mode</small>
+          <h1>
+            {notFound ? 'Match not <em>found</em>' : 'Something went <em>wrong</em>'}
+          </h1>
+        </div>
         <div className="g-alert g-alert-error">
           {getErrorMessage(error, 'Failed to load match')}
+          {notFound ? ' It may have been deleted or the link is incorrect.' : ' Try again in a moment.'}
+        </div>
+        <div className="g-btn-row" style={{ marginTop: 14 }}>
+          <Link to="/" className="g-btn g-btn-outline">
+            Back to matches
+          </Link>
         </div>
       </div>
     )

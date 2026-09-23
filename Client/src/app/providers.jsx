@@ -14,8 +14,7 @@ export function AppProviders({ children }) {
         <ThemeProvider>
           <SocketProvider>
             <ToastProvider>
-              <SessionRefresh />
-              {children}
+              <SessionRefresh>{children}</SessionRefresh>
             </ToastProvider>
           </SocketProvider>
         </ThemeProvider>

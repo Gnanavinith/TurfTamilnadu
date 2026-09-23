@@ -10,7 +10,8 @@ const http = axios.create({
 
 http.interceptors.request.use((config) => {
   const token = store.getState().auth.token
-  if (token) {
+  const isAuthEndpoint = /^\/auth\//.test(config.url ?? '')
+  if (token && !isAuthEndpoint) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config

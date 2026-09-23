@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../../components/useTheme'
 import { useAuth } from '../auth/hooks/useAuth'
@@ -83,6 +83,7 @@ function TickerStrip() {
 
 function GullyShell() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { theme, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
 
@@ -156,11 +157,13 @@ function GullyShell() {
           ))}
         </nav>
 
-        <Link to="/matches/create" className="g-fab-btn" aria-label="Create a match">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </Link>
+        {pathname !== '/matches/create' && (
+          <Link to="/matches/create" className="g-fab-btn" aria-label="Create a match">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </Link>
+        )}
       </div>
     </div>
   )
