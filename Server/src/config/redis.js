@@ -59,7 +59,7 @@ export async function connectRedis() {
     { url: redactRedisUrl() },
     ok ? 'Redis connected' : 'Redis unavailable - running in degraded mode',
   )
-  return { redis, redisPub, redisSub }
+  return { redis, redisPub, redisSub, available: ok }
 }
 
 export async function disconnectRedis() {
