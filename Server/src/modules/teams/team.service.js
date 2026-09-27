@@ -7,7 +7,7 @@ import { User } from '../users/user.model.js'
 import { Match } from '../matches/match.model.js'
 import { Innings } from '../matches/innings.model.js'
 import { ApiError } from '../../utils/ApiError.js'
-import { env } from '../../config/env.js'
+import { primaryClientUrl } from '../../config/cors.js'
 import { sendInviteEmail } from '../../utils/mailer.js'
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -397,8 +397,8 @@ export async function inviteMember({ teamId, email, password, invitedBy }) {
     teamName: team?.name ?? 'a team',
     inviterName: inviter?.name ?? null,
     inviterEmail: inviter?.email ?? null,
-    acceptUrl: `${env.CLIENT_URL}/invite/${token}`,
-    loginUrl: `${env.CLIENT_URL}/login`,
+    acceptUrl: `${primaryClientUrl}/invite/${token}`,
+    loginUrl: `${primaryClientUrl}/login`,
     credentials,
   })
 

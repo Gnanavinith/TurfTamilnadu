@@ -2,6 +2,7 @@ import { Server } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import jwt from 'jsonwebtoken'
 import { env } from '../config/env.js'
+import { allowedOrigins } from '../config/cors.js'
 import { createRedisClient } from '../config/redis.js'
 import { registerScoringHandlers } from '../modules/scoring/scoring.socket.js'
 import { logger } from '../utils/logger.js'
@@ -9,7 +10,7 @@ import { logger } from '../utils/logger.js'
 export function initSocket(server, { redisAvailable = false } = {}) {
   const io = new Server(server, {
     cors: {
-      origin: env.CLIENT_URL.split(',').map((origin) => origin.trim()),
+      origin: allowedOrigins,
       credentials: true,
     },
     pingInterval: 25_000,
