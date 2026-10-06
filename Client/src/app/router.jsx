@@ -6,7 +6,6 @@ import ProtectedRoute from '../routes/ProtectedRoute'
 import RoleRoute from '../routes/RoleRoute'
 import {
   OnboardingPage,
-  LoginPage,
   InvitePage,
   MyTeams,
   TeamDetail,
@@ -16,7 +15,7 @@ import {
   LiveMatchPage,
   LeaderboardPage,
   UsersAdminPage,
-  PublicHomePage,
+  PlayersPage,
 } from '../routes/lazyPages'
 
 const withSuspense = (element) => (
@@ -25,16 +24,39 @@ const withSuspense = (element) => (
 
 export const router = createBrowserRouter([
   {
-    path: '/home',
-    element: withSuspense(<PublicHomePage />),
-  },
-  {
     path: '/onboarding',
     element: withSuspense(<OnboardingPage />),
   },
   {
+    // No login screen: /login drops you on the home page with the dialog open.
     path: '/login',
-    element: withSuspense(<LoginPage />),
+    element: <Navigate to="/" replace state={{ auth: true, mode: 'signin' }} />,
+  },
+  {
+    path: '/home',
+    element: <Navigate to="/" replace />,
+  },
+  {
+    // Home page: the public feed for visitors, your matches once signed in.
+    element: <GullyLayout />,
+    children: [
+      {
+        index: true,
+        element: withSuspense(<MatchList />),
+      },
+      {
+        path: 'teams',
+        element: withSuspense(<MyTeams />),
+      },
+      {
+        path: 'players',
+        element: withSuspense(<PlayersPage />),
+      },
+      {
+        path: 'teams/:teamId',
+        element: withSuspense(<TeamDetail />),
+      },
+    ],
   },
   {
     path: '/invite/:token',
@@ -47,24 +69,12 @@ export const router = createBrowserRouter([
         element: <GullyLayout />,
         children: [
           {
-            index: true,
-            element: withSuspense(<MatchList />),
-          },
-          {
             path: 'leaderboard',
             element: withSuspense(<LeaderboardPage />),
           },
           {
             path: 'live/:matchId',
             element: withSuspense(<LiveMatchPage />),
-          },
-          {
-            path: 'teams',
-            element: withSuspense(<MyTeams />),
-          },
-          {
-            path: 'teams/:teamId',
-            element: withSuspense(<TeamDetail />),
           },
           {
             path: 'matches/create',
@@ -94,7 +104,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <Navigate to="/home" replace />,
+    element: <Navigate to="/" replace />,
   },
 ])
 

@@ -25,6 +25,15 @@ const userSchema = new mongoose.Schema(
     },
     avatarUrl: { type: String, trim: true },
     preferredTeams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Team' }],
+    // The account this user was created under. Null on a player who only exists
+    // because they joined someone else's squad — those users are reached through
+    // team membership, not through an account of their own.
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account',
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true },
 )

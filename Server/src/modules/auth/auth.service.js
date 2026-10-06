@@ -5,6 +5,7 @@ import { env } from '../../config/env.js'
 import { User } from '../users/user.model.js'
 import { sanitizeUser } from '../users/users.service.js'
 import { RefreshToken } from './refreshToken.model.js'
+import { ensureAccountForUser } from '../accounts/account.service.js'
 import { ApiError } from '../../utils/ApiError.js'
 
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex')
@@ -80,6 +81,10 @@ export async function serviceRegister({ email, name, password }) {
     user = await User.create({ email, name, password: hashed, role: 'admin' })
   }
 
+  // Every admin gets their own account, so a brand new sign-in starts with zero
+  // teams, players and matches rather than inheriting anyone else's data.
+  await ensureAccountForUser(user)
+
   const tokens = await issueTokenPair(user)
   return { user: sanitizeUser(user), ...tokens }
 }
@@ -95,6 +100,10 @@ export async function serviceLogin({ email, password }) {
 
   const valid = await bcrypt.compare(password, user.password)
   if (!valid) throw ApiError.unauthorized('Incorrect email or password')
+
+  // Backfill for accounts created before tenancy existed, so signing in is
+  // enough to give an old admin their own (empty) account.
+  await ensureAccountForUser(user)
 
   const tokens = await issueTokenPair(user)
   return { user: sanitizeUser(user), ...tokens }

@@ -24,6 +24,15 @@ export const DESIGNATION_OPTIONS = [
   { value: 'vice_captain', label: 'Vice-captain' },
 ]
 
+export const MAX_JERSEY_NUMBER = 99
+
+export const SPECIALTY_SHORT = {
+  batter: 'BAT',
+  bowler: 'BOWL',
+  all_rounder: 'ALL',
+  wicket_keeper: 'WK',
+}
+
 export const AVATAR_COLORS = [
   '#22c55e',
   '#3b82f6',

@@ -3,12 +3,17 @@ import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMatches } from '../api'
+import { fetchPublicMatches } from '../../public/api'
+import { fetchMyTeams } from '../../teams/api'
 import { getErrorMessage } from '../../../lib/axios'
 import { selectUser } from '../../../app/store'
+import { useAuthPrompt } from '../../auth/hooks/useAuthPrompt'
 import { MATCH_STATUS, STATUS_LABELS } from '../../../utils/constants'
 import { formatOvers } from '../../../utils/formatOvers'
 import { teamColor, teamCode } from '../../../utils/teamColor'
+import GettingStarted from '../../../components/GettingStarted'
 import MatchCard from '../components/MatchCard'
+import { CreateTeamModal } from '../../teams/components/CreateTeamModal'
 
 const FILTERS = [
   { key: '', label: 'All' },
@@ -17,7 +22,7 @@ const FILTERS = [
   { key: MATCH_STATUS.COMPLETED, label: 'Completed' },
 ]
 
-function LiveHero({ match, canScore }) {
+function LiveHero({ match, canScore, signedIn, onSignIn }) {
   const s = match.score ?? {}
   const batting =
     match.teamA?.id === s.battingTeamId ? match.teamA : match.teamB
@@ -79,9 +84,18 @@ function LiveHero({ match, canScore }) {
         <i style={{ width: `${progress}%` }} />
       </div>
 
-      <Link to={canScore ? `/scoring/${match.id}` : `/live/${match.id}`} className="g-hero-cta">
-        {canScore ? 'Score this match' : 'Watch this match'}
-      </Link>
+      {signedIn ? (
+        <Link
+          to={canScore ? `/scoring/${match.id}` : `/live/${match.id}`}
+          className="g-hero-cta"
+        >
+          {canScore ? 'Score this match' : 'Watch this match'}
+        </Link>
+      ) : (
+        <button type="button" className="g-hero-cta" onClick={onSignIn}>
+          Sign in to follow live
+        </button>
+      )}
     </div>
   )
 }
@@ -98,20 +112,41 @@ function MatchesSkeleton() {
 
 export default function MatchList() {
   const [status, setStatus] = useState('')
+  // "all" is the global feed; "mine" narrows to the signed-in admin's own
+  // fixtures. Both are global-capable, so the page reads the same either way.
+  const [scope, setScope] = useState('all')
+  const [showCreateTeam, setShowCreateTeam] = useState(false)
   const user = useSelector(selectUser)
+  const { isAuthenticated, promptAuth } = useAuthPrompt()
   const canScore = ['scorer', 'admin'].includes(user?.role)
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['matches', status],
-    queryFn: () => fetchMatches({ status: status || undefined }),
+    queryKey: ['matches', status, isAuthenticated, scope],
+    queryFn: () =>
+      isAuthenticated
+        ? fetchMatches({
+            status: status || undefined,
+            scope: scope === 'mine' ? 'mine' : undefined,
+          })
+        : fetchPublicMatches({ status: status || undefined }),
+    refetchInterval: 30_000,
   })
 
   const matches = data?.data ?? []
   const liveMatch = matches.find((match) => match.status === MATCH_STATUS.LIVE)
 
+  // A brand new account owns nothing yet. Show the guided first-run path instead
+  // of an empty feed, so the account is never mistaken for a broken one.
+  const { data: ownTeamsData, isLoading: teamsLoading } = useQuery({
+    queryKey: ['teams', 'getting-started'],
+    queryFn: fetchMyTeams,
+    enabled: isAuthenticated,
+  })
+  const isNewAccount = isAuthenticated && (ownTeamsData?.data ?? []).length === 0
+
   const header = (
     <div className="g-hello">
-      <small>Your fixtures</small>
+      <small>{scope === 'mine' && isAuthenticated ? 'Your fixtures' : 'Global feed'}</small>
       <h1>
         Matches, <em>live</em>
       </h1>
@@ -121,7 +156,19 @@ export default function MatchList() {
   if (error) {
     return (
       <div className="g-screen">
-        {header}
+{header}
+
+      {/* A new account owns nothing yet. The setup path sits above the feed
+          rather than replacing it: the global matches are still worth watching,
+          and the admin can act on the steps straight away. */}
+      {isNewAccount && (
+        <div style={{ marginBottom: 18 }}>
+          <GettingStarted onCreateTeam={() => setShowCreateTeam(true)} />
+        </div>
+      )}
+
+      <CreateTeamModal open={showCreateTeam} onClose={() => setShowCreateTeam(false)} />
+
         <div className="g-alert g-alert-error">
           {getErrorMessage(error, 'Failed to load matches')}
         </div>
@@ -138,18 +185,56 @@ export default function MatchList() {
     <div className="g-screen">
       {header}
 
-      {isLoading ? (
+      {isLoading || teamsLoading ? (
         <MatchesSkeleton />
       ) : (
         <>
-          {liveMatch && <LiveHero match={liveMatch} canScore={canScore} />}
+          {liveMatch && (
+            <LiveHero
+              match={liveMatch}
+              canScore={canScore}
+              onSignIn={() => promptAuth('signin')}
+              signedIn={isAuthenticated}
+            />
+          )}
 
           <div className="g-sec-head">
-            <h2>All matches</h2>
-            <Link to="/matches/create" className="g-note">
-              New match
-            </Link>
+            <h2>{scope === 'mine' && isAuthenticated ? 'Your matches' : 'All matches'}</h2>
+            {isAuthenticated ? (
+              <Link to="/matches/create" className="g-note">
+                New match
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="g-note g-link"
+                onClick={() => promptAuth('signin')}
+              >
+                Sign in to create
+              </button>
+            )}
           </div>
+
+          {isAuthenticated && (
+            <div className="g-seg" role="tablist" aria-label="Feed scope">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={scope === 'all'}
+                onClick={() => setScope('all')}
+              >
+                Global
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={scope === 'mine'}
+                onClick={() => setScope('mine')}
+              >
+                Yours
+              </button>
+            </div>
+          )}
 
           <div className="g-seg" role="tablist" aria-label="Match filter">
             {FILTERS.map((filter) => (
@@ -166,17 +251,42 @@ export default function MatchList() {
           </div>
 
           {matches.length === 0 ? (
-            <div className="g-empty">
-              <p>
-                {status
-                  ? `No ${STATUS_LABELS[status]?.toLowerCase() ?? ''} matches.`
-                  : 'No matches yet.'}
-              </p>
-              <small>Set up a fixture, pick teams, and start scoring.</small>
-              <Link to="/matches/create" className="g-btn">
-                Create your first match
-              </Link>
-            </div>
+            scope === 'mine' && isAuthenticated ? (
+              // Your own feed really is empty — offer setup, not the global feed.
+              <div className="g-empty">
+                <p>No matches of your own yet.</p>
+                <small>Create a team, add players, then schedule a fixture.</small>
+                <Link to="/matches/create" className="g-btn">
+                  Create a match
+                </Link>
+              </div>
+            ) : (
+              <div className="g-empty">
+                <p>
+                  {status
+                    ? `No ${STATUS_LABELS[status]?.toLowerCase() ?? ''} matches.`
+                    : 'No matches yet.'}
+                </p>
+                <small>
+                  {isAuthenticated
+                    ? 'Be the first to schedule one on this platform.'
+                    : 'Set up a fixture, pick teams, and start scoring.'}
+                </small>
+                {isAuthenticated ? (
+                  <Link to="/matches/create" className="g-btn">
+                    Create your first match
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="g-btn"
+                    onClick={() => promptAuth('signup')}
+                  >
+                    Create an account
+                  </button>
+                )}
+              </div>
+            )
           ) : (
             matches.map((match, i) => (
               <MatchCard key={match.id} match={match} index={i} />

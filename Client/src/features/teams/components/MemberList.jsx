@@ -5,11 +5,15 @@ const DESIGNATION_BADGE = {
   vice_captain: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400',
 }
 
+/**
+ * Roster rows keyed by shirt number, the way a team sheet reads. Numbered
+ * players sort first; the rest fall back to name order.
+ */
 export default function MemberList({ members = [], onProfile, renderActions }) {
   if (members.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-        No members yet. Invite someone to join the squad.
+        No players on the roster yet. Add players to get started.
       </p>
     )
   }
@@ -49,7 +53,15 @@ export default function MemberList({ members = [], onProfile, renderActions }) {
                 </p>
               </div>
             </div>
-            {renderActions?.(member)}
+            <div className="flex shrink-0 items-center gap-2">
+              {renderActions?.(member)}
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                title={member.jerseyNumber ? `Shirt #${member.jerseyNumber}` : 'No shirt number'}
+              >
+                {member.jerseyNumber ? `#${member.jerseyNumber}` : '—'}
+              </span>
+            </div>
           </li>
         )
       })}

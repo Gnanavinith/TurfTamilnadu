@@ -11,3 +11,11 @@ export function fetchPublicMatch(matchId) {
 export function fetchPublicLeaderboard() {
   return http.get('/public/leaderboard').then((res) => res.data)
 }
+
+export function fetchPublicTeams() {
+  return http.get('/public/teams').then((res) => res.data)
+}
+
+export function fetchPublicTeam(teamId) {
+  return http.get(`/public/teams/${teamId}`).then((res) => res.data)
+}

@@ -1,6 +1,7 @@
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import {
   createTeam,
+  updateTeam,
   listMyTeams,
   getTeamDetail,
   inviteMember,
@@ -9,16 +10,27 @@ import {
   updateMember,
   removeMember,
 } from './team.service.js'
+import { tenantIdForUser } from '../accounts/account.service.js'
 
 export const createTeamHandler = asyncHandler(async (req, res) => {
   const team = await createTeam({
     name: req.body.name,
     shortName: req.body.shortName,
     city: req.body.city,
-    members: req.body.members,
+    players: req.body.players,
     createdBy: req.user._id,
+    tenantId: req.user.tenantId ?? (await tenantIdForUser(req.user._id)),
   })
   res.status(201).json({ success: true, data: team })
+})
+
+export const updateTeamHandler = asyncHandler(async (req, res) => {
+  const team = await updateTeam({
+    teamId: req.params.teamId,
+    updates: req.body,
+    updaterId: req.user._id,
+  })
+  res.json({ success: true, data: team })
 })
 
 export const myTeamsHandler = asyncHandler(async (req, res) => {
@@ -27,7 +39,9 @@ export const myTeamsHandler = asyncHandler(async (req, res) => {
 })
 
 export const getTeamHandler = asyncHandler(async (req, res) => {
-  const team = await getTeamDetail(req.params.teamId)
+  // Membership is enforced inside getTeamDetail: this response carries every
+  // member's email and full career stats.
+  const team = await getTeamDetail(req.params.teamId, { viewerId: req.user._id })
   res.json({ success: true, data: team })
 })
 
@@ -70,6 +84,7 @@ export const removeMemberHandler = asyncHandler(async (req, res) => {
 
 export default {
   createTeamHandler,
+  updateTeamHandler,
   myTeamsHandler,
   getTeamHandler,
   inviteHandler,

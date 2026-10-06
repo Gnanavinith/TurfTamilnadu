@@ -4,6 +4,7 @@ import { validate } from '../../middleware/validate.js'
 import { isTeamAdmin } from '../../middleware/authorize.js'
 import {
   createTeamHandler,
+  updateTeamHandler,
   myTeamsHandler,
   getTeamHandler,
   inviteHandler,
@@ -14,6 +15,7 @@ import {
 } from './team.controller.js'
 import {
   createTeamSchema,
+  updateTeamSchema,
   inviteSchema,
   acceptInviteSchema,
   inviteTokenParamsSchema,
@@ -47,6 +49,12 @@ router.get(
   validate({ params: teamParamsSchema }),
   getTeamHandler,
 )
+router.patch(
+  '/:teamId',
+  validate({ params: teamParamsSchema, body: updateTeamSchema }),
+  isTeamAdmin,
+  updateTeamHandler,
+)
 router.post(
   '/:teamId/invites',
   validate({ params: teamParamsSchema, body: inviteSchema }),
@@ -56,6 +64,9 @@ router.post(
 router.patch(
   '/:teamId/members/:memberId',
   validate({ params: memberParamsSchema, body: updateMemberSchema }),
+  // Same gate as DELETE and PATCH /:teamId — editing a member (role, shirt
+  // number) is an admin action. It was only authenticated before.
+  isTeamAdmin,
   updateMemberHandler,
 )
 router.delete(

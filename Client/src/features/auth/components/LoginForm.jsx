@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function LoginForm({ onSubmit, busy, defaultEmail = '' }) {
+export default function LoginForm({ onSubmit, onInvalid, busy, defaultEmail = '' }) {
   const [email, setEmail] = useState(defaultEmail)
   const [password, setPassword] = useState('')
 
@@ -9,6 +9,8 @@ export default function LoginForm({ onSubmit, busy, defaultEmail = '' }) {
     const normalized = email.trim().toLowerCase()
     if (normalized.includes('@') && password.length > 0) {
       onSubmit({ email: normalized, password })
+    } else {
+      onInvalid?.()
     }
   }
 

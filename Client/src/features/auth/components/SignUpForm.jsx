@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function SignUpForm({ onSubmit, busy, defaultEmail = '' }) {
+export default function SignUpForm({ onSubmit, onInvalid, busy, defaultEmail = '' }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState(defaultEmail)
   const [password, setPassword] = useState('')
@@ -10,6 +10,8 @@ export default function SignUpForm({ onSubmit, busy, defaultEmail = '' }) {
     const normalized = email.trim().toLowerCase()
     if (name.trim() && normalized.includes('@') && password.length >= 8) {
       onSubmit({ name: name.trim(), email: normalized, password })
+    } else {
+      onInvalid?.()
     }
   }
 
@@ -42,6 +44,7 @@ export default function SignUpForm({ onSubmit, busy, defaultEmail = '' }) {
         <input
           type="password"
           autoComplete="new-password"
+          minLength={8}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="At least 8 characters"

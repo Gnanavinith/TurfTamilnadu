@@ -55,7 +55,7 @@ export default function OnboardingPage() {
 
   const goToSignIn = () => {
     setAskingQuickMatch(false)
-    navigate('/login', { state: { from: { pathname: '/' } } })
+    navigate('/login')
   }
 
   return (
@@ -138,7 +138,7 @@ export default function OnboardingPage() {
           <span className="ob-cta-ball" aria-hidden="true" />
           Quick match
         </button>
-        <Link to="/home" className="ob-cta-ghost">
+        <Link to="/" className="ob-cta-ghost">
           Browse live matches
         </Link>
         <p className="ob-hint">Quick match signs you in, then opens your match list.</p>

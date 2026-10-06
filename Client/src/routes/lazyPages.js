@@ -1,7 +1,6 @@
 import { lazy } from 'react'
 
 export const OnboardingPage = lazy(() => import('../features/onboarding/pages/OnboardingPage'))
-export const LoginPage = lazy(() => import('../features/auth/pages/LoginPage'))
 export const InvitePage = lazy(() => import('../features/teams/pages/InvitePage'))
 export const MyTeams = lazy(() => import('../features/teams/pages/MyTeams'))
 export const TeamDetail = lazy(() => import('../features/teams/pages/TeamDetail'))
@@ -11,4 +10,4 @@ export const ScorerPage = lazy(() => import('../features/scoring/pages/ScorerPag
 export const LiveMatchPage = lazy(() => import('../features/live/pages/LiveMatchPage'))
 export const LeaderboardPage = lazy(() => import('../features/leaderboard/pages/LeaderboardPage'))
 export const UsersAdminPage = lazy(() => import('../features/users/pages/UsersAdminPage'))
-export const PublicHomePage = lazy(() => import('../features/public/pages/PublicHomePage'))
+export const PlayersPage = lazy(() => import('../features/players/pages/PlayersPage'))

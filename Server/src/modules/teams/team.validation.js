@@ -11,21 +11,27 @@ export const avatarColorSchema = z
   .optional()
   .or(z.literal(''))
 
+// Squad players are picked from existing accounts by id, so a team is never
+// created with placeholder logins the way the old email+password list did.
+export const squadPlayerSchema = z.object({
+  userId: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid user id'),
+  specialty: specialtySchema.optional(),
+  jerseyNumber: z.coerce.number().int().min(1).max(99).optional().nullable(),
+  role: z.enum(['admin', 'member']).optional(),
+})
+
 export const createTeamSchema = z.object({
   name: z.string().trim().min(2).max(60),
   shortName: z.string().trim().max(12).optional().or(z.literal('')),
   city: z.string().trim().max(60).optional().or(z.literal('')),
-  members: z
-    .array(
-      z.object({
-        email: emailSchema,
-        role: z.enum(['admin', 'member']).optional(),
-        password: z.string().min(8).max(100).optional(),
-        specialty: specialtySchema.optional(),
-      }),
-    )
-    .max(40)
-    .optional(),
+  players: z.array(squadPlayerSchema).max(40).optional(),
+})
+
+export const updateTeamSchema = z.object({
+  name: z.string().trim().min(2).max(60).optional(),
+  shortName: z.string().trim().max(12).optional().or(z.literal('')),
+  city: z.string().trim().max(60).optional().or(z.literal('')),
+  players: z.array(squadPlayerSchema).max(40).optional(),
 })
 
 export const inviteSchema = z.object({
@@ -55,10 +61,12 @@ export const updateMemberSchema = z.object({
   specialty: specialtySchema.optional(),
   designation: z.enum(['captain', 'vice_captain', 'none']).optional(),
   avatarColor: avatarColorSchema,
+  jerseyNumber: z.coerce.number().int().min(1).max(99).nullable().optional(),
 })
 
 export default {
   createTeamSchema,
+  updateTeamSchema,
   inviteSchema,
   acceptInviteSchema,
   inviteTokenParamsSchema,

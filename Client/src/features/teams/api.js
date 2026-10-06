@@ -4,6 +4,11 @@ export function createTeam(payload) {
   return http.post('/teams', payload)
 }
 
+/** Player directory for picking squad members (profile fields only). */
+export function searchPlayers(params) {
+  return http.get('/users/players', { params }).then((res) => res.data)
+}
+
 export function fetchMyTeams() {
   return http.get('/teams').then((res) => res.data)
 }

@@ -1,5 +1,6 @@
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { endMatch } from '../scoring/scoring.service.js'
+import { tenantIdForUser } from '../accounts/account.service.js'
 import {
   createMatch,
   listMatches,
@@ -11,6 +12,7 @@ export const createMatchHandler = asyncHandler(async (req, res) => {
   const match = await createMatch({
     ...req.body,
     createdBy: req.user._id,
+    tenantId: req.user.tenantId ?? (await tenantIdForUser(req.user._id)),
   })
   res.status(201).json({ success: true, data: match })
 })
@@ -18,6 +20,9 @@ export const createMatchHandler = asyncHandler(async (req, res) => {
 export const listMatchesHandler = asyncHandler(async (req, res) => {
   const matches = await listMatches({
     userId: req.user?._id,
+    tenantId: req.user?.tenantId ?? null,
+    // Global by default; "mine" is opt-in via ?scope=mine.
+    scope: req.query.scope,
     status: req.query.status,
     limit: req.query.limit ? Number(req.query.limit) : 50,
   })

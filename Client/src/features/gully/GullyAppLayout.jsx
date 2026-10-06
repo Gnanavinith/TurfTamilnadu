@@ -1,9 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../../components/useTheme'
 import { useAuth } from '../auth/hooks/useAuth'
+import { useAuthPrompt } from '../auth/hooks/useAuthPrompt'
+import AuthModal from '../auth/components/AuthModal'
 import { fetchMatches } from '../matches/api'
+import { fetchPublicMatches } from '../public/api'
 import { MATCH_STATUS } from '../../utils/constants'
 import { GullyFeedbackProvider } from './feedback'
 
@@ -14,6 +17,14 @@ function TabIcon({ name }) {
         <path d="M3 11l9-8 9 8" />
         <path d="M5 10v10h14V10" />
         <path d="M10 20v-6h4v6" />
+      </svg>
+    )
+  }
+  if (name === 'players') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="7.5" r="3.4" />
+        <path d="M5 20c0-3.9 3.1-6.5 7-6.5s7 2.6 7 6.5" />
       </svg>
     )
   }
@@ -36,9 +47,10 @@ function TabIcon({ name }) {
 }
 
 function TickerStrip() {
+  const { isAuthenticated } = useAuthPrompt()
   const { data } = useQuery({
-    queryKey: ['matches', ''],
-    queryFn: () => fetchMatches({}),
+    queryKey: ['ticker', isAuthenticated],
+    queryFn: () => (isAuthenticated ? fetchMatches({}) : fetchPublicMatches({})),
     staleTime: 60_000,
     refetchInterval: 60_000,
   })
@@ -83,20 +95,49 @@ function TickerStrip() {
 
 function GullyShell() {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const { pathname } = location
   const { theme, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
+  const { isAuthenticated, promptAuth } = useAuthPrompt()
+  const [authMode, setAuthMode] = useState(null)
+
+  // Either a guest tapped a sign-in button (route state) or a signed-in user
+  // opened the dialog from the layout itself.
+  const wantsAuth = Boolean(location.state?.auth)
+  const authOpen = wantsAuth || authMode !== null
+  const mode = wantsAuth ? (location.state?.mode ?? 'signin') : authMode
+
+  const openAuth = (nextMode = 'signin') => {
+    if (!promptAuth(nextMode)) setAuthMode(nextMode)
+  }
+
+  const switchAuthMode = (nextMode) => {
+    setAuthMode(nextMode)
+    if (wantsAuth) {
+      navigate(pathname, {
+        replace: true,
+        state: { ...(location.state ?? {}), mode: nextMode },
+      })
+    }
+  }
+
+  const closeAuth = () => {
+    setAuthMode(null)
+    if (wantsAuth) navigate(pathname, { replace: true, state: {} })
+  }
+
+  const initial = (user?.name || user?.email || '?').charAt(0).toUpperCase()
 
   const tabs = [
-    { to: '/', label: 'Matches', icon: 'home', end: true },
-    { to: '/teams', label: 'Teams', icon: 'teams' },
+    { to: '/', label: 'Matches', icon: 'home', end: true, guest: true },
+    { to: '/teams', label: 'Teams', icon: 'teams', guest: true },
+    { to: '/players', label: 'Players', icon: 'players' },
     { to: '/leaderboard', label: 'Top 10', icon: 'top' },
   ]
   if (user?.role === 'admin') {
     tabs.push({ to: '/users', label: 'Users', icon: 'users' })
   }
-
-  const initial = (user?.name || user?.email || '?').charAt(0).toUpperCase()
 
   const handleLogout = () => {
     logout()
@@ -120,20 +161,32 @@ function GullyShell() {
             >
               <span aria-hidden="true">◐</span>
             </button>
-            <button
-              type="button"
-              className="g-icon-btn"
-              onClick={handleLogout}
-              aria-label="Log out"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
-                <path d="M10 16l-4-4 4-4M6 12h10" />
-              </svg>
-            </button>
-            <span className="g-avatar" title={user?.name ?? user?.email ?? 'Player'}>
-              {initial}
-            </span>
+            {isAuthenticated ? (
+              <>
+                <button
+                  type="button"
+                  className="g-icon-btn"
+                  onClick={handleLogout}
+                  aria-label="Log out"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+                    <path d="M10 16l-4-4 4-4M6 12h10" />
+                  </svg>
+                </button>
+                <span className="g-avatar" title={user?.name ?? user?.email ?? 'Player'}>
+                  {initial}
+                </span>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="g-btn g-btn-sm"
+                onClick={() => openAuth('signin')}
+              >
+                Sign in
+              </button>
+            )}
           </div>
         </header>
 
@@ -143,28 +196,64 @@ function GullyShell() {
           <Outlet />
         </main>
 
-        <nav className="g-tabbar" style={{ '--g-cols': tabs.length }} aria-label="Main">
-          {tabs.map((tab) => (
-            <NavLink
-              key={tab.to}
-              to={tab.to}
-              end={tab.end}
-              className={({ isActive }) => `g-tab${isActive ? ' is-active' : ''}`}
-            >
-              <TabIcon name={tab.icon} />
-              {tab.label}
-            </NavLink>
-          ))}
+        <nav className="g-tabbar" aria-label="Main">
+          <div className="g-tabbar-inner">
+            {tabs.map((tab) =>
+              isAuthenticated || tab.guest ? (
+                <NavLink
+                  key={tab.to}
+                  to={tab.to}
+                  end={tab.end}
+                  className={({ isActive }) => `g-tab${isActive ? ' is-active' : ''}`}
+                >
+                  <TabIcon name={tab.icon} />
+                  {tab.label}
+                </NavLink>
+              ) : (
+                <button
+                  key={tab.to}
+                  type="button"
+                  className="g-tab"
+                  onClick={() => openAuth('signin')}
+                >
+                  <TabIcon name={tab.icon} />
+                  {tab.label}
+                </button>
+              ),
+            )}
+          </div>
         </nav>
 
-        {pathname !== '/matches/create' && (
-          <Link to="/matches/create" className="g-fab-btn" aria-label="Create a match">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </Link>
-        )}
+        {pathname !== '/matches/create' &&
+          (isAuthenticated ? (
+            <Link to="/matches/create" className="g-fab-btn" aria-label="Create a match">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="g-fab-btn"
+              aria-label="Sign in to create a match"
+              onClick={() => openAuth('signin')}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          ))}
       </div>
+
+      {authOpen && (
+        <AuthModal
+          open
+          mode={mode}
+          onModeChange={switchAuthMode}
+          onClose={closeAuth}
+          onSuccess={closeAuth}
+        />
+      )}
     </div>
   )
 }

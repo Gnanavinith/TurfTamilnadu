@@ -19,13 +19,15 @@ export const authenticate = asyncHandler(async (req, _res, next) => {
   }
 
   const user = await User.findById(payload.sub)
-    .select('_id email name role avatarUrl')
+    .select('_id email name role avatarUrl tenantId')
     .lean()
 
   if (!user) {
     throw ApiError.unauthorized('Account no longer exists')
   }
 
+  // tenantId rides on req.user so controllers can scope without a second query.
+  // It stays off the JWT so revoking an account takes effect immediately.
   req.user = { ...user, id: user._id.toString() }
   next()
 })

@@ -38,6 +38,12 @@ const membershipSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    jerseyNumber: {
+      type: Number,
+      min: 1,
+      max: 99,
+      default: null,
+    },
     joinedAt: { type: Date, default: Date.now },
   },
   { timestamps: true },

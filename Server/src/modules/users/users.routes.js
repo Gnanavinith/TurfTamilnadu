@@ -6,9 +6,18 @@ import {
   getProfile,
   updateProfile,
   listUsers,
+  searchPlayers,
+  createUser,
+  adminEditUser,
   updateUserRole,
 } from './users.controller.js'
-import { updateProfileSchema, updateRoleSchema } from './users.validation.js'
+import {
+  updateProfileSchema,
+  updateRoleSchema,
+  searchPlayersQuerySchema,
+  createUserSchema,
+  adminUpdateUserSchema,
+} from './users.validation.js'
 
 const router = Router()
 
@@ -17,7 +26,22 @@ router.use(authenticate)
 router.get('/me', getProfile)
 router.patch('/me', validate({ body: updateProfileSchema }), updateProfile)
 
+// Player directory for squad building: any signed-in user, profile fields only.
+router.get(
+  '/players',
+  validate({ query: searchPlayersQuerySchema }),
+  searchPlayers,
+)
+
+router.post('/', requireRole('admin'), validate({ body: createUserSchema }), createUser)
+
 router.get('/', requireRole('admin'), listUsers)
+router.patch(
+  '/:userId',
+  requireRole('admin'),
+  validate({ body: adminUpdateUserSchema }),
+  adminEditUser,
+)
 router.patch('/:userId/role', requireRole('admin'), validate({ body: updateRoleSchema }), updateUserRole)
 
 export default router

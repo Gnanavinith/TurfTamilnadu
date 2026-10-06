@@ -1,16 +1,22 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { createMatch } from '../api'
+import { createMatch, startMatch } from '../api'
+import { getErrorMessage } from '../../../lib/axios'
 import { fetchMyTeams, fetchTeam } from '../../teams/api'
 import MatchForm from '../components/MatchForm'
 import TossPanel from '../components/TossPanel'
 import PlayingXI from '../components/PlayingXI'
+import { MATCH_TYPES, MIN_OVERS, MAX_OVERS, START_MODES } from '../../../utils/constants'
 
 const INITIAL_STATE = {
   teamAId: '',
   teamBId: '',
+  matchType: MATCH_TYPES.SINGLE,
+  tournamentName: '',
+  oversChoice: '10',
   overs: 10,
+  startMode: START_MODES.SCHEDULED,
   scheduledAt: '',
   tossWinnerId: '',
   tossDecision: '',
@@ -40,10 +46,23 @@ export default function CreateMatch() {
   })
 
   const mutation = useMutation({
-    mutationFn: createMatch,
-    onSuccess: ({ data }) => {
-      const id = data?.match?.id ?? data?.id
-      navigate(id ? `/live/${id}` : '/matches')
+    mutationFn: async ({ startNow, ...body }) => {
+      const created = await createMatch(body)
+      const id = created?.data?.match?.id ?? created?.data?.id
+      // "Start now" goes straight to a live match instead of a scheduled one.
+      if (id && startNow) await startMatch(id)
+      return id
+    },
+    onSuccess: (id, variables) => {
+      if (!id) {
+        navigate('/matches')
+        return
+      }
+      // "Start now" is already live, so drop the scorer straight into scoring.
+      navigate(variables?.startNow ? `/scoring/${id}` : `/live/${id}`)
+    },
+    onError: (err) => {
+      setError(getErrorMessage(err, 'Could not create the match'))
     },
   })
 
@@ -71,11 +90,37 @@ export default function CreateMatch() {
     (Boolean(form.teamAId) && teamAQuery.isPending) ||
     (Boolean(form.teamBId) && teamBQuery.isPending)
 
+  const oversValid =
+    Number.isInteger(Number(form.overs)) &&
+    Number(form.overs) >= MIN_OVERS &&
+    Number(form.overs) <= MAX_OVERS
+  const tournamentName = (form.tournamentName ?? '').trim()
+  const tournamentValid =
+    form.matchType !== MATCH_TYPES.TOURNAMENT || tournamentName.length >= 2
+  const startMode = form.startMode ?? START_MODES.SCHEDULED
+  const startNow = startMode === START_MODES.NOW
+  const detailsValid =
+    Boolean(form.teamAId) &&
+    Boolean(form.teamBId) &&
+    form.teamAId !== form.teamBId &&
+    oversValid &&
+    tournamentValid &&
+    (startNow || Boolean(form.scheduledAt))
+
   const payload = {
     teamAId: form.teamAId,
     teamBId: form.teamBId,
-    overs: form.overs,
-    scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : undefined,
+    matchType: form.matchType ?? MATCH_TYPES.SINGLE,
+    tournamentName:
+      form.matchType === MATCH_TYPES.TOURNAMENT ? tournamentName : undefined,
+    overs: Number(form.overs),
+    // "Start now" still needs a scheduledAt: it is required and marks the
+    // intended start, which for an immediate match is the current moment.
+    scheduledAt: startNow
+      ? new Date().toISOString()
+      : form.scheduledAt
+        ? new Date(form.scheduledAt).toISOString()
+        : undefined,
     toss: {
       winnerTeamId: form.tossWinnerId,
       decision: form.tossDecision,
@@ -88,7 +133,7 @@ export default function CreateMatch() {
 
   const handleSubmit = () => {
     setError('')
-    mutation.mutate(payload)
+    mutation.mutate({ ...payload, startNow })
   }
 
   return (
@@ -123,7 +168,7 @@ export default function CreateMatch() {
             <button
               type="button"
               className="g-btn"
-              disabled={!form.teamAId || !form.teamBId || form.teamAId === form.teamBId}
+              disabled={!detailsValid}
               onClick={() => setStep(2)}
             >
               Next: Toss

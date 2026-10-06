@@ -15,6 +15,13 @@ const matchSchema = new mongoose.Schema(
       index: true,
     },
     overs: { type: Number, required: true, default: 10, min: 1, max: 50 },
+    matchType: {
+      type: String,
+      enum: ['single', 'tournament'],
+      default: 'single',
+      index: true,
+    },
+    tournamentName: { type: String, trim: true, maxlength: 120 },
     status: {
       type: String,
       enum: ['scheduled', 'live', 'completed', 'abandoned'],
@@ -40,6 +47,14 @@ const matchSchema = new mongoose.Schema(
     scheduledAt: { type: Date, required: true },
     venue: { type: String, trim: true, maxlength: 120 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // A match always inherits the owning account of the two teams, so the whole
+    // fixture — and its innings, ball ledger and stats — stays inside one tenant.
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account',
+      required: true,
+      index: true,
+    },
     completedAt: { type: Date },
   },
   { timestamps: true },

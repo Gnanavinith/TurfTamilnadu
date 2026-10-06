@@ -30,6 +30,14 @@ const teamSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    // Owning account. A team is only ever visible inside its tenant until it
+    // appears in a match, which is what promotes it to the public feed.
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account',
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true },
 )

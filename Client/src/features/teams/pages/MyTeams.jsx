@@ -2,22 +2,34 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMyTeams } from '../api'
+import { fetchPublicTeams } from '../../public/api'
+import { useAuthPrompt } from '../../auth/hooks/useAuthPrompt'
 import { getErrorMessage } from '../../../lib/axios'
+import GettingStarted from '../../../components/GettingStarted'
 import TeamCard from '../components/TeamCard'
 import { CreateTeamModal } from '../components/CreateTeamModal'
 
 export default function MyTeams() {
   const [showCreate, setShowCreate] = useState(false)
+  const { isAuthenticated, promptAuth } = useAuthPrompt()
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['teams'],
-    queryFn: fetchMyTeams,
+    queryKey: ['teams', isAuthenticated],
+    queryFn: () => (isAuthenticated ? fetchMyTeams() : fetchPublicTeams()),
   })
 
   const header = (
     <div className="g-hello">
-      <small>Your squads</small>
+      <small>{isAuthenticated ? 'Your squads' : 'Public feed'}</small>
       <h1>
-        My <em>teams</em>
+        {isAuthenticated ? (
+          <>
+            My <em>teams</em>
+          </>
+        ) : (
+          <>
+            All <em>teams</em>
+          </>
+        )}
       </h1>
     </div>
   )
@@ -54,19 +66,33 @@ export default function MyTeams() {
         <>
           <div className="g-sec-head">
             <h2>{teams.length} teams</h2>
-            <button type="button" className="g-note" onClick={() => setShowCreate(true)}>
-              Create team
-            </button>
+            {isAuthenticated ? (
+              <button type="button" className="g-note" onClick={() => setShowCreate(true)}>
+                Create team
+              </button>
+            ) : (
+              <button type="button" className="g-note g-link" onClick={() => promptAuth('signin')}>
+                Sign in to create
+              </button>
+            )}
           </div>
 
           {teams.length === 0 ? (
-            <div className="g-empty">
-              <p>No teams yet.</p>
-              <small>Create a squad, add players, and start playing.</small>
-              <button type="button" className="g-btn" onClick={() => setShowCreate(true)}>
-                Create your first team
-              </button>
-            </div>
+            isAuthenticated ? (
+              <GettingStarted
+                teams={teams}
+                isLoading={isLoading}
+                onCreateTeam={() => setShowCreate(true)}
+              />
+            ) : (
+              <div className="g-empty">
+                <p>No teams to show yet.</p>
+                <small>Teams appear here once they have played a match.</small>
+                <button type="button" className="g-btn" onClick={() => promptAuth('signup')}>
+                  Create an account
+                </button>
+              </div>
+            )
           ) : (
             teams.map((team, i) => <TeamCard key={team.id} team={team} index={i} />)
           )}

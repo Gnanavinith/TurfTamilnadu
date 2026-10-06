@@ -89,6 +89,12 @@ export async function recomputeAllTeamStats(teamIds) {
   }
 }
 
+/**
+ * Global standings. The leaderboard is public by design — it is one of the
+ * reasons a team's results are visible outside its own account — so it is not
+ * tenant-scoped. It only ever includes teams that have actually played, since
+ * stats rows are created from completed matches.
+ */
 export async function getLeaderboard(limit = 10) {
   let stats = await TeamStats.find()
     .sort({ rating: -1, points: -1, runsScored: -1 })

@@ -65,7 +65,12 @@ function refreshSession() {
 }
 
 export function getErrorMessage(error, fallback = 'Something went wrong') {
-  return error?.response?.data?.message ?? error?.message ?? fallback
+  const data = error?.response?.data
+  const apiError = data?.error
+  const detail = Array.isArray(apiError?.details) && apiError.details.length
+    ? apiError.details.map((issue) => issue.message).join(' · ')
+    : null
+  return apiError?.message ?? detail ?? data?.message ?? error?.message ?? fallback
 }
 
 export default http

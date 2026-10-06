@@ -60,8 +60,22 @@ const inningsSchema = new mongoose.Schema(
       balls: { type: Number, default: 0 },
       extras: { type: Number, default: 0 },
     },
+    extrasBreakdown: {
+      wide: { type: Number, default: 0 },
+      noBall: { type: Number, default: 0 },
+      bye: { type: Number, default: 0 },
+      legBye: { type: Number, default: 0 },
+    },
     batting: { type: [batterEntrySchema], default: [] },
     bowling: { type: [bowlerEntrySchema], default: [] },
+    // Live crease, maintained by the scorer so the scorecard always knows who is
+    // on strike without re-deriving it from the ball ledger on every read.
+    strikerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    nonStrikerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    bowlerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    previousBowlerId: { type: mongoose.Types.ObjectId, ref: 'User', default: null },
+    retiredHurt: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    lastManStanding: { type: Boolean, default: false },
   },
   { timestamps: true },
 )

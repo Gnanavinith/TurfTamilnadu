@@ -1,92 +1,122 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useScorer } from '../hooks/useScorer'
-import { useLiveMatch } from '../../live/hooks/useLiveMatch'
-import { useGullyFeedback } from '../../gully/feedback'
 import { getErrorMessage } from '../../../lib/axios'
-import { formatOvers, formatRunRate, formatScore } from '../../../utils/formatOvers'
+import { useLiveMatch } from '../../live/hooks/useLiveMatch'
+import { useScorer } from '../hooks/useScorer'
+import { useGullyFeedback } from '../../gully/feedback'
+import { MATCH_STATUS } from '../../../utils/constants'
+import AtTheCrease from '../components/AtTheCrease'
+import ExtrasModal from '../components/ExtrasModal'
+import InningsSummary from '../components/InningsSummary'
+import MatchSummary from '../components/MatchSummary'
+import OverLogs from '../components/OverLogs'
+import PlayerPickerModal from '../components/PlayerPickerModal'
+import ScoringControls from '../components/ScoringControls'
+import ScorecardTables from '../components/ScorecardTables'
 import WicketModal from '../components/WicketModal'
 
-const PAD = [
-  { key: '0', label: '0', run: 0 },
-  { key: '1', label: '1', run: 1 },
-  { key: '2', label: '2', run: 2 },
-  { key: '3', label: '3', run: 3 },
-  { key: '4', label: '4', run: 4, cls: 'g-b4' },
-  { key: '6', label: '6', run: 6, cls: 'g-b6' },
-  { key: 'wd', label: 'Wd', cls: 'g-bx', extra: { kind: 'wide', runs: 1 } },
-  { key: 'nb', label: 'Nb', cls: 'g-bx', extra: { kind: 'no_ball', runs: 1 } },
-  { key: 'bye', label: 'Bye', cls: 'g-bx', extra: { kind: 'bye', runs: 1 } },
-  { key: 'lb', label: 'LB', cls: 'g-bx', extra: { kind: 'leg_bye', runs: 1 } },
-  { key: 'w', label: 'OUT', cls: 'g-bw', span: true },
-]
+const EXTRA_SHEETS = {
+  no_ball: {
+    title: 'No ball',
+    description: 'A no-ball always adds one extra run. Did the batter score any runs off it?',
+    hint: 'Runs off a no-ball count for the batter but not as a legal ball.',
+  },
+  bye: {
+    title: 'Byes',
+    description: 'Runs past the bat to the keeper. They go to extras, not the batter.',
+    hint: 'Byes count as a legal ball and do not cost the bowler a run.',
+  },
+  leg_bye: {
+    title: 'Leg byes',
+    description: 'Runs scored off the body. They go to extras, not the batter.',
+    hint: 'Leg byes count as a legal ball and do not cost the bowler a run.',
+  },
+}
+
+function PageSkeleton() {
+  return (
+    <div className="g-screen">
+      <div className="g-skel" />
+      <div className="g-skel" />
+      <div className="g-skel" />
+    </div>
+  )
+}
+
+function nameLookup(match) {
+  const map = new Map()
+  for (const side of ['teamA', 'teamB']) {
+    const team = match?.[side]
+    if (team) map.set(String(team.id), team.name)
+  }
+  return (id) => map.get(String(id)) ?? 'Team'
+}
 
 export default function ScorerPage() {
   const { matchId } = useParams()
   const { match, isLoading, error, refetch } = useLiveMatch(matchId)
-  const [showWicket, setShowWicket] = useState(false)
-  const [strikerId, setStrikerId] = useState('')
-  const [bowlerId, setBowlerId] = useState('')
   const { burst } = useGullyFeedback()
 
-  const { record, undo, error: scoreError } = useScorer({
-    matchId,
-  })
+  const [sheet, setSheet] = useState(null)
+  const [picker, setPicker] = useState(null)
+  const [showWicket, setShowWicket] = useState(false)
 
-  const inning = match?.currentInnings ?? null
-  const battingTeamId = inning?.battingTeamId
-  const bowlingTeamId = inning?.bowlingTeamId
-  const battingTeamName =
-    match?.teamA?.id === battingTeamId ? match?.teamA?.name : match?.teamB?.name
-  const bowlingTeamName =
-    match?.teamA?.id === bowlingTeamId ? match?.teamA?.name : match?.teamB?.name
+  const {
+    record,
+    undo,
+    setBatsman,
+    setBowler,
+    swapStrike,
+    retireHurt,
+    recallRetired,
+    error: scoreError,
+    isBusy,
+  } = useScorer({ matchId })
 
-  const battingXi = useMemo(() => {
-    if (!match) return []
-    if (match.teamA?.id === battingTeamId) return match.playingXI?.teamA ?? []
-    if (match.teamB?.id === battingTeamId) return match.playingXI?.teamB ?? []
-    return []
-  }, [match, battingTeamId])
+  const innings = match?.currentInnings ?? null
+  const nameOf = useMemo(() => nameLookup(match), [match])
 
-  const bowlingXi = useMemo(() => {
-    if (!match) return []
-    if (match.teamA?.id === bowlingTeamId) return match.playingXI?.teamA ?? []
-    if (match.teamB?.id === bowlingTeamId) return match.playingXI?.teamB ?? []
-    return []
-  }, [match, bowlingTeamId])
+  const battingXI = useMemo(() => {
+    if (!match || !innings) return []
+    return String(innings.battingTeamId) === String(match.teamA?.id)
+      ? (match.playingXI?.teamA ?? [])
+      : (match.playingXI?.teamB ?? [])
+  }, [match, innings])
 
-  const battingIds = battingXi.map((p) => p.id ?? p.userId)
-  const bowlingIds = bowlingXi.map((p) => p.id ?? p.userId)
+  const bowlingXI = useMemo(() => {
+    if (!match || !innings) return []
+    return String(innings.bowlingTeamId) === String(match.teamA?.id)
+      ? (match.playingXI?.teamA ?? [])
+      : (match.playingXI?.teamB ?? [])
+  }, [match, innings])
 
-  useEffect(() => {
-    if (!match) return
+  const nameOfPlayer = (id) =>
+    battingXI.concat(bowlingXI).find((p) => String(p.id) === String(id))?.name ?? 'Unknown'
 
-    const currentInnings = match.currentInnings
-    const ballsBowled = currentInnings?.score?.balls ?? 0
-    const overJustCompleted = ballsBowled > 0 && ballsBowled % 6 === 0
+  // The batting XI that hasn't been dismissed or retired yet. The two batters
+  // already at the crease stay in this list so the scorer can correct a mistake
+  // or swap ends from the picker.
+  const nextBatters = useMemo(() => {
+    if (!innings) return []
+    const unavailable = new Set([
+      ...(innings.batting ?? [])
+        .filter((b) => ['out', 'retired'].includes(b.status))
+        .map((b) => String(b.userId)),
+      ...(innings.retiredHurt ?? []).map((p) => String(p.id)),
+    ])
+    return battingXI.filter((p) => !unavailable.has(String(p.id)))
+  }, [innings, battingXI])
 
-    const activeBatter = (currentInnings?.batting ?? []).find((b) => b.status === 'batting')
-    const currentBowler = (currentInnings?.bowling ?? [])[0]
+  const availableBowlers = useMemo(() => {
+    if (!innings) return []
+    return bowlingXI.filter((p) => String(p.id) !== String(innings.previousBowlerId))
+  }, [bowlingXI, innings])
 
-    setStrikerId((prev) =>
-      battingIds.includes(prev) ? prev : (activeBatter?.userId ?? battingIds[0] ?? ''),
-    )
-    setBowlerId((prev) => {
-      if (overJustCompleted) return ''
-      return bowlingIds.includes(prev) ? prev : (currentBowler?.userId ?? bowlingIds[0] ?? '')
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match])
+  const retiredPlayers = innings?.retiredHurt ?? []
+  const canScore = innings?.strikerId && innings?.bowlerId
+  const isLive = match?.status === MATCH_STATUS.LIVE
 
-  if (isLoading) {
-    return (
-      <div className="g-screen">
-        <div className="g-skel" />
-        <div className="g-skel" />
-        <div className="g-skel" />
-      </div>
-    )
-  }
+  if (isLoading) return <PageSkeleton />
 
   if (error) {
     const notFound = error?.response?.status === 404
@@ -95,12 +125,12 @@ export default function ScorerPage() {
         <div className="g-hello">
           <small>Scorer mode</small>
           <h1>
-            {notFound ? 'Match not <em>found</em>' : 'Something went <em>wrong</em>'}
+            {notFound ? 'Match not found' : 'Something went wrong'}
           </h1>
         </div>
         <div className="g-alert g-alert-error">
           {getErrorMessage(error, 'Failed to load match')}
-          {notFound ? ' It may have been deleted or the link is incorrect.' : ' Try again in a moment.'}
+          {notFound ? ' It may have been deleted or the link is incorrect.' : ' Try again shortly.'}
         </div>
         <div className="g-btn-row" style={{ marginTop: 14 }}>
           <Link to="/" className="g-btn g-btn-outline">
@@ -113,198 +143,257 @@ export default function ScorerPage() {
 
   if (!match) return null
 
-  const score = inning?.score
-  const ballsBowled = score?.balls ?? 0
-  const overJustCompleted = ballsBowled > 0 && ballsBowled % 6 === 0
-
-  const canSend = Boolean(strikerId && bowlerId)
-  const selectedBatter = battingXi.find((p) => (p.id ?? p.userId) === strikerId)
-  const selectedBowler = bowlingXi.find((p) => (p.id ?? p.userId) === bowlerId)
+  const deliver = (payload, celebrate) => {
+    record.mutate(
+      {
+        batterId: innings.strikerId,
+        nonStrikerId: innings.nonStrikerId,
+        bowlerId: innings.bowlerId,
+        batterRuns: 0,
+        extraType: null,
+        extraRuns: 0,
+        wicketType: null,
+        ...payload,
+      },
+      { onSuccess: celebrate },
+    )
+  }
 
   const handleRun = (runs) => {
-    if (!canSend) return
-    record.mutate({
-      batterId: strikerId,
-      bowlerId,
-      batterRuns: runs,
-      extraType: null,
-      extraRuns: 0,
-      wicketType: null,
-    })
-    if (runs === 4) burst('FOUR!', '#2f6bff')
-    else if (runs === 6) burst('SIX!', '#ff6a1a')
-  }
-
-  const handleExtra = ({ kind, runs }) => {
-    if (!canSend) return
-    record.mutate({
-      batterId: strikerId,
-      bowlerId,
-      batterRuns: 0,
-      extraType: kind,
-      extraRuns: runs,
-      wicketType: null,
+    deliver({ batterRuns: runs }, () => {
+      if (runs === 4) burst('FOUR!', 'var(--g-four)')
+      else if (runs === 6) burst('SIX!', 'var(--g-six)')
     })
   }
 
-  const handleWicket = (wicketType, outBatterId) => {
+  const handleExtra = (kind, runs) => {
+    if (kind === 'wide') {
+      deliver({ extraType: 'wide', extraRuns: runs })
+      return
+    }
+    if (kind === 'no_ball') {
+      // Runs 0 means the batter didn't score — just the one penalty run.
+      deliver(
+        { extraType: 'no_ball', extraRuns: 1, batterRuns: runs },
+        () => runs >= 4 && burst('SIX OFF A NO-BALL!', 'var(--g-six)'),
+      )
+      return
+    }
+    deliver({ extraType: kind, extraRuns: runs })
+  }
+
+  const handleWicket = ({ wicketType, outBatterId, fielderId, batterRuns }) => {
     setShowWicket(false)
-    if (!canSend) return
-    record.mutate({
-      batterId: outBatterId || strikerId,
-      bowlerId,
-      batterRuns: 0,
-      extraType: null,
-      extraRuns: 0,
-      wicketType,
-    })
-    if (!outBatterId || outBatterId === strikerId) setStrikerId('')
-    burst('WICKET!', '#e11d48')
+    deliver({ wicketType, outBatterId, fielderId, batterRuns }, () => burst('WICKET!', 'var(--g-wkt)'))
   }
 
-  if (match.status !== 'live') {
-    return (
-      <div className="g-screen">
-        <div className="g-hello">
-          <small>Scorer mode</small>
-          <h1>
-            Match not <em>live</em>
-          </h1>
-        </div>
-        <div className="g-alert g-alert-info">
-          This match is not live yet. Start it before scoring.
-        </div>
-      </div>
-    )
+  const openPicker = (kind) => setPicker({ kind })
+
+  const handlePick = (playerId) => {
+    if (picker?.kind === 'striker') {
+      setBatsman.mutate({ strikerId: playerId })
+    } else if (picker?.kind === 'nonStriker') {
+      setBatsman.mutate({ nonStrikerId: playerId })
+    } else if (picker?.kind === 'bowler') {
+      setBowler.mutate(playerId)
+    } else if (picker?.kind === 'retire') {
+      retireHurt.mutate(playerId)
+    } else if (picker?.kind === 'recall') {
+      recallRetired.mutate(playerId)
+    }
+    setPicker(null)
   }
 
-  if (battingIds.length === 0 || bowlingIds.length === 0) {
-    return (
-      <div className="g-screen">
-        <div className="g-hello">
-          <small>Scorer mode</small>
-          <h1>
-            Playing <em>XI</em> missing
-          </h1>
-        </div>
-        <div className="g-alert g-alert-info">
-          Playing XI is not set for this match.
-        </div>
-      </div>
-    )
-  }
+  const pickerConfig = {
+    striker: {
+      title: innings.strikerId ? 'Change the striker' : 'Assign the new striker',
+      description: 'Select the striker from the batting squad.',
+      players: nextBatters,
+      emptyNote: 'No batters left in the XI.',
+    },
+    nonStriker: {
+      title: innings.nonStrikerId ? 'Change the non-striker' : 'Assign the non-striker',
+      description: 'Select the batter who stands at the other end.',
+      players: nextBatters,
+      emptyNote: 'No batters left in the XI.',
+    },
+    bowler: {
+      title: innings.bowlerId ? 'Change the bowler' : 'Select the bowler for this over',
+      description:
+        'Pick who is bowling. The same bowler cannot bowl two overs in a row.',
+      players: availableBowlers,
+      emptyNote: 'No other bowler is available in this XI.',
+    },
+    retire: {
+      title: 'Retire hurt',
+      description: 'Retire a batter hurt. They keep their runs and can be recalled.',
+      players: [innings?.strikerId, innings?.nonStrikerId]
+        .filter(Boolean)
+        .map((id) => ({ id: String(id), name: nameOfPlayer(id) })),
+      emptyNote: 'Nobody at the crease to retire.',
+    },
+    recall: {
+      title: 'Recall a retired batter',
+      description: 'Bring a retired-hurt batter back into the innings.',
+      players: retiredPlayers,
+      emptyNote: 'Nobody has retired hurt.',
+    },
+  }[picker?.kind]
+
+  const isComplete = match.status === MATCH_STATUS.COMPLETED
 
   return (
     <div className="g-screen">
       <div className="g-hello">
         <small>Scorer mode</small>
         <h1>
-          {battingTeamName ?? 'Team'} <em>batting</em>
+          {match.teamA?.name} <em>vs</em> {match.teamB?.name}
         </h1>
       </div>
 
-      <div className="g-mini">
-        <div>
-          <small>{battingTeamName ?? 'Team'}</small>
-          <span className="g-big">
-            {score ? formatScore(score.runs ?? 0, score.wickets ?? 0) : '0/0'}
-          </span>
-        </div>
-        <div className="g-r">
-          <small>RR {score ? formatRunRate(score.runs ?? 0, score.balls ?? 0) : '0.00'}</small>
-          <span className="g-big">{formatOvers(score?.balls ?? 0)}</span>
-        </div>
-      </div>
-
-      <div className="g-panel">
-        <div className="g-panel-head">
-          On strike
-          <span>
-            {bowlingTeamName ?? 'Opponent'} bowling · {match.overs} overs
-          </span>
-        </div>
-
-        <label className="g-field">
-          <span className="g-label">Striker</span>
-          <select
-            value={strikerId}
-            onChange={(event) => setStrikerId(event.target.value)}
-            className="g-select"
-          >
-            <option value="">Select striker</option>
-            {battingXi.map((player) => (
-              <option key={player.id ?? player.userId} value={player.id ?? player.userId}>
-                {player.name ?? player.email}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="g-field" style={{ marginBottom: 0 }}>
-          <span className="g-label">
-            Bowler{overJustCompleted ? ' · new over, pick another bowler' : ''}
-          </span>
-          <select
-            value={bowlerId}
-            onChange={(event) => setBowlerId(event.target.value)}
-            className={`g-select${overJustCompleted ? ' g-invalid' : ''}`}
-          >
-            <option value="">Select bowler</option>
-            {bowlingXi.map((player) => (
-              <option key={player.id ?? player.userId} value={player.id ?? player.userId}>
-                {player.name ?? player.email}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <p className="g-note" style={{ marginTop: 12 }}>
-          {selectedBatter?.name ?? selectedBatter?.email ?? 'Pick a striker'} on strike ·{' '}
-          {selectedBowler?.name ?? selectedBowler?.email ?? 'pick a bowler'} bowling.
-        </p>
-      </div>
-
-      {overJustCompleted && (
-        <div className="g-alert g-alert-warn">
-          A bowler cannot bowl two overs in a row. Each new over starts with a different bowler.
-        </div>
-      )}
-
-      {scoreError && (
-        <div className="g-alert g-alert-error">
-          {getErrorMessage(scoreError, 'Could not record ball')}
-        </div>
-      )}
-
-      <div className="g-pad">
-        {PAD.map((button) => (
-          <button
-            key={button.key}
-            type="button"
-            className={button.cls}
-            disabled={!canSend || record.isPending}
-            onClick={() => {
-              if (button.key === 'w') setShowWicket(true)
-              else if (button.extra) handleExtra(button.extra)
-              else handleRun(button.run)
-            }}
-            style={button.span ? { gridColumn: 'span 2' } : undefined}
-          >
-            {button.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="g-pad-foot">
-        <button
-          type="button"
-          className="g-ghost"
-          onClick={() => undo.mutate()}
-          disabled={undo.isPending || !score?.balls}
-        >
-          Undo last ball
+      <div className="g-btn-row" style={{ marginBottom: 14 }}>
+        <Link to={`/live/${match.id}`} className="g-btn g-btn-ghost">
+          View scorecard
+        </Link>
+        <button type="button" className="g-btn g-btn-ghost" onClick={() => refetch()}>
+          Refresh
         </button>
+        {!isLive && (
+          <Link to={`/live/${match.id}`} className="g-btn">
+            {isComplete ? 'See the result' : 'Open the match'}
+          </Link>
+        )}
       </div>
+
+      {scoreError && <div className="g-alert g-alert-error">{getErrorMessage(scoreError)}</div>}
+
+      {!isLive && (
+        <div className="g-alert g-alert-info">
+          {isComplete
+            ? 'This match is finished, so scoring is closed.'
+            : 'This match is not live yet. Start it before scoring.'}
+        </div>
+      )}
+
+      {isLive && !innings && (
+        <div className="g-alert g-alert-warn">
+          No innings is in progress. Start the match to begin scoring.
+        </div>
+      )}
+
+      {isLive && innings && (
+        <>
+          <InningsSummary match={match} />
+
+          <AtTheCrease
+            innings={innings}
+            nameOf={nameOf}
+            battingXI={battingXI}
+            bowlingXI={bowlingXI}
+            editable={isLive}
+            swapPending={swapStrike.isPending}
+            onSwap={() => swapStrike.mutate()}
+            onChangeStriker={() => openPicker('striker')}
+            onChangeNonStriker={() => openPicker('nonStriker')}
+            onChangeBowler={() => openPicker('bowler')}
+            onRetire={() => openPicker('retire')}
+          />
+
+          {(!innings.strikerId || !innings.nonStrikerId) && (
+            <div className="g-panel g-helper">
+              <div className="g-panel-head">
+                {innings.strikerId ? 'Assign the non-striker' : 'Assign the striker'}
+                <span>{nextBatters.length} available</span>
+              </div>
+              {nextBatters.length === 0 ? (
+                <p className="g-empty-note">
+                  Everyone in the XI is out or retired. End the innings or recall a retired batter.
+                </p>
+              ) : (
+                <div className="g-btn-row">
+                  {!innings.strikerId && (
+                    <button
+                      type="button"
+                      className="g-btn"
+                      onClick={() => openPicker('striker')}
+                    >
+                      Pick striker
+                    </button>
+                  )}
+                  {!innings.nonStrikerId && !innings.lastManStanding && (
+                    <button
+                      type="button"
+                      className="g-btn"
+                      onClick={() => openPicker('nonStriker')}
+                    >
+                      Pick non-striker
+                    </button>
+                  )}
+                  {retiredPlayers.length > 0 && (
+                    <button
+                      type="button"
+                      className="g-btn g-btn-outline"
+                      onClick={() => openPicker('recall')}
+                    >
+                      Recall retired
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!innings.bowlerId && (
+            <div className="g-alert g-alert-warn">
+              A new over starts with a new bowler. Pick who is bowling.
+              <button
+                type="button"
+                className="g-btn g-btn-sm"
+                style={{ marginTop: 10 }}
+                onClick={() => openPicker('bowler')}
+              >
+                {availableBowlers.length === 0 ? 'See the squad' : 'Pick a bowler'}
+              </button>
+            </div>
+          )}
+
+          <ScoringControls
+            disabled={!canScore || !isLive}
+            busy={isBusy}
+            undoDisabled={!innings.score?.balls}
+            onRun={handleRun}
+            onWicket={() => setShowWicket(true)}
+            onExtra={(kind) => (kind === 'wide' ? handleExtra('wide', 1) : setSheet(kind))}
+            onUndo={() => undo.mutate()}
+          />
+        </>
+      )}
+
+      {(isComplete || match.status === MATCH_STATUS.ABANDONED) && <MatchSummary match={match} />}
+
+      {match.thisOver?.length > 0 && (
+        <div className="g-panel">
+          <div className="g-panel-head">
+            This over
+            <span>Over {(match.completedOvers ?? 0) + 1}</span>
+          </div>
+          <OverLogs overs={[match.thisOver]} reverse={false} />
+        </div>
+      )}
+
+      {match.oversTimeline?.length > 0 && (
+        <div className="g-panel">
+          <div className="g-panel-head">
+            Ball by ball
+            <span>{match.oversTimeline.length} overs</span>
+          </div>
+          <OverLogs overs={match.oversTimeline} />
+        </div>
+      )}
+
+      {(match.innings ?? []).map((inn) => (
+        <ScorecardTables key={inn.id} innings={inn} names={nameOf} />
+      ))}
 
       <WicketModal
         key={showWicket}
@@ -312,9 +401,47 @@ export default function ScorerPage() {
         onClose={() => setShowWicket(false)}
         onConfirm={handleWicket}
         busy={record.isPending}
-        players={battingXi}
-        defaultBatterId={strikerId}
+        striker={battingXI.find((p) => String(p.id) === String(innings?.strikerId))}
+        nonStriker={battingXI.find((p) => String(p.id) === String(innings?.nonStrikerId))}
+        bowler={bowlingXI.find((p) => String(p.id) === String(innings?.bowlerId))}
+        fielders={bowlingXI}
+        defaultBatterId={innings?.strikerId ?? ''}
       />
+
+      {EXTRA_SHEETS[sheet] && (
+        <ExtrasModal
+          open={Boolean(sheet)}
+          kind={sheet}
+          busy={record.isPending}
+          {...EXTRA_SHEETS[sheet]}
+          onClose={() => setSheet(null)}
+          onDeliver={(runs) => {
+            handleExtra(sheet, runs)
+            setSheet(null)
+          }}
+        />
+      )}
+
+      {pickerConfig && (
+        <PlayerPickerModal
+          open
+          busy={isBusy}
+          // The other end's holder can't be picked here — the same batter cannot
+          // occupy both ends. The batter already on this end stays selectable so
+          // the striker and non-striker can be corrected or swapped.
+          disabledIds={
+            picker.kind === 'striker'
+              ? [innings?.nonStrikerId].filter(Boolean).map(String)
+              : picker.kind === 'nonStriker'
+                ? [innings?.strikerId].filter(Boolean).map(String)
+                : []
+          }
+          {...pickerConfig}
+          onClose={() => setPicker(null)}
+          onPick={handlePick}
+        />
+      )}
     </div>
   )
 }
+

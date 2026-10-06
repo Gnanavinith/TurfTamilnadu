@@ -5,6 +5,7 @@ import { env } from '../config/env.js'
 import { allowedOrigins } from '../config/cors.js'
 import { createRedisClient } from '../config/redis.js'
 import { registerScoringHandlers } from '../modules/scoring/scoring.socket.js'
+import { User } from '../modules/users/user.model.js'
 import { logger } from '../utils/logger.js'
 
 export function initSocket(server, { redisAvailable = false } = {}) {
@@ -35,16 +36,34 @@ export function initSocket(server, { redisAvailable = false } = {}) {
     logger.warn('Socket.IO redis adapter skipped (Redis down), using in-memory adapter')
   }
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token
     if (!token) return next(new Error('Authentication required'))
 
+    let payload
     try {
-      const payload = jwt.verify(token, env.JWT_ACCESS_SECRET)
-      socket.data.user = { id: payload.sub, email: payload.email, role: payload.role }
-      next()
+      payload = jwt.verify(token, env.JWT_ACCESS_SECRET)
     } catch {
-      next(new Error('Invalid token'))
+      return next(new Error('Invalid token'))
+    }
+
+    // Re-load the user rather than trusting the token claims, so a downgraded or
+    // deleted account cannot keep scoring on a stale token.
+    try {
+      const user = await User.findById(payload.sub)
+        .select('_id email role tenantId')
+        .lean()
+      if (!user) return next(new Error('Account no longer exists'))
+      socket.data.user = {
+        id: String(user._id),
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId ?? null,
+      }
+      next()
+    } catch (err) {
+      logger.error({ err }, 'Socket auth failed')
+      next(new Error('Authentication failed'))
     }
   })
 
