@@ -1,0 +1,58 @@
+/* ==========================================================================
+   Live scoring surface
+   Bespoke classes that Tailwind utilities don't cover: press feedback on the
+   delivery pad, ball chips, modal layers, and the two reveal animations used
+   by the inline scorer menus.
+   ========================================================================== */
+
+/* Press feedback: a scored button should feel struck, not tapped. */
+.scoring-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.scoring-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.scoring-btn:active {
+  transform: scale(0.95);
+}
+
+.ball-badge {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.modal-overlay {
+  animation: fadeIn 0.18s ease-out both;
+}
+.modal-content {
+  animation: modal-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.22s ease-out both;
+}
+.animate-slideUp {
+  animation: slideUp 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modal-pop {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scoring-btn:active { transform: none; }
+  .modal-overlay, .modal-content, .animate-fadeIn, .animate-slideUp { animation: none; }
+}
